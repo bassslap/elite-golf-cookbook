@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Health Check - Elite Golf Club</title>
+    <style>
+        body {
+            font-family: 'Courier New', monospace;
+            background: #1a1a1a;
+            color: #00ff00;
+            padding: 20px;
+            margin: 0;
+        }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: #000;
+            border: 2px solid #00ff00;
+            border-radius: 10px;
+            padding: 30px;
+        }
+        .status {
+            font-size: 2em;
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        .metrics {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            margin-top: 20px;
+        }
+        .metric {
+            background: #0a0a0a;
+            border: 1px solid #00aa00;
+            padding: 15px;
+            border-radius: 5px;
+        }
+        .metric-label {
+            color: #00aa00;
+            font-weight: bold;
+        }
+        .metric-value {
+            color: #00ff00;
+            font-size: 1.2em;
+        }
+        .blink {
+            animation: blink 1s infinite;
+        }
+        @keyframes blink {
+            0%, 50% { opacity: 1; }
+            51%, 100% { opacity: 0.3; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="status">
+            <span class="blink">🟢 SYSTEM HEALTHY</span>
+        </div>
+        
+        <h2>Elite Golf Club - Health Check</h2>
+        <p><strong>POC Environment Status:</strong> OPERATIONAL</p>
+        
+        <div class="metrics">
+            <div class="metric">
+                <div class="metric-label">Web Server</div>
+                <div class="metric-value">RUNNING</div>
+            </div>
+            
+            <div class="metric">
+                <div class="metric-label">Application</div>
+                <div class="metric-value">DEPLOYED</div>
+            </div>
+            
+            <div class="metric">
+                <div class="metric-label">Chef Status</div>
+                <div class="metric-value">CONVERGED</div>
+            </div>
+            
+            <div class="metric">
+                <div class="metric-label">Compliance</div>
+                <div class="metric-value">COMPLIANT</div>
+            </div>
+            
+            <div class="metric">
+                <div class="metric-label">Response Time</div>
+                <div class="metric-value">&lt; 50ms</div>
+            </div>
+            
+            <div class="metric">
+                <div class="metric-label">Uptime</div>
+                <div class="metric-value">100%</div>
+            </div>
+        </div>
+        
+        <hr style="border-color: #00aa00; margin: 30px 0;">
+        
+        <h3>Demo Endpoints:</h3>
+        <ul>
+            <li><a href="/" style="color: #00ff00;">Main Application</a></li>
+            <li><a href="/health" style="color: #00ff00;">Health Check (this page)</a></li>
+            <li><a href="/metrics.json" style="color: #00ff00;">Metrics API</a></li>
+            <li><a href="/demo-config.txt" style="color: #00ff00;">Demo Configuration</a></li>
+        </ul>
+        
+        <p style="margin-top: 30px; text-align: center; color: #00aa00;">
+            <em>This is a Chef-managed POC environment for customer demonstration</em>
+        </p>
+    </div>
+    
+    <script>
+        // Auto-refresh every 30 seconds for demo purposes
+        setTimeout(() => {
+            location.reload();
+        }, 30000);
+    </script>
+</body>
+</html>

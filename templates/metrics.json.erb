@@ -1,0 +1,49 @@
+{
+  "service": "elite-golf-club",
+  "status": "healthy",
+  "timestamp": "<%= @deployment_time %>",
+  "version": "<%= @cookbook_version %>",
+  "chef": {
+    "version": "<%= @chef_version %>",
+    "last_run": "<%= @deployment_time %>",
+    "status": "success"
+  },
+  "platform": {
+    "os": "<%= @platform %>",
+    "hostname": "<%= @hostname %>"
+  },
+  "application": {
+    "name": "Elite Golf Club POC",
+    "type": "web-application",
+    "framework": "static-html",
+    "features": [
+      "responsive-design",
+      "svg-graphics",
+      "cross-platform",
+      "ssl-ready"
+    ]
+  },
+  "infrastructure": {
+    "web_server": "<%= node['golf_app']['web_server'] %>",
+    "port": <%= node['golf_app']['port'] %>,
+    "ssl_port": <%= node['golf_app']['ssl_port'] %>,
+    "ssl_enabled": <%= node['golf_app']['enable_ssl'] %>
+  },
+  "compliance": {
+    "security_headers": true,
+    "file_permissions": "configured",
+    "ssl_config": "<%= node['golf_app']['enable_ssl'] ? 'enabled' : 'disabled' %>",
+    "audit_logging": <%= node['golf_app']['audit_logging'] %>
+  },
+  "demo": {
+    "lab_mode": <%= node['golf_app']['lab_mode'] %>,
+    "customer": "<%= node['golf_app']['customer_name'] %>",
+    "poc_environment": true
+  },
+  "endpoints": {
+    "main": "/",
+    "health": "/health",
+    "metrics": "/metrics.json",
+    "config": "/demo-config.txt"
+  }
+}

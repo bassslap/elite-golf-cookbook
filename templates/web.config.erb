@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="utf-8"?>
+<configuration>
+  <system.webServer>
+    <defaultDocument>
+      <files>
+        <clear />
+        <add value="index.html" />
+      </files>
+    </defaultDocument>
+    
+    <staticContent>
+      <mimeMap fileExtension=".html" mimeType="text/html" />
+      <mimeMap fileExtension=".css" mimeType="text/css" />
+      <mimeMap fileExtension=".js" mimeType="application/javascript" />
+      <mimeMap fileExtension=".svg" mimeType="image/svg+xml" />
+    </staticContent>
+    
+    <httpErrors>
+      <remove statusCode="404" subStatusCode="-1" />
+      <error statusCode="404" prefixLanguageFilePath="" path="/index.html" responseMode="ExecuteURL" />
+    </httpErrors>
+    
+    <security>
+      <requestFiltering>
+        <requestLimits maxAllowedContentLength="52428800" />
+      </requestFiltering>
+    </security>
+    
+    <% if node['golf_app']['enable_ssl'] %>
+    <rewrite>
+      <rules>
+        <rule name="Redirect to HTTPS" stopProcessing="true">
+          <match url="." />
+          <conditions>
+            <add input="{HTTPS}" pattern="^OFF$" ignoreCase="true" />
+          </conditions>
+          <action type="Redirect" url="https://{HTTP_HOST}/{R:0}" redirectType="Permanent" />
+        </rule>
+      </rules>
+    </rewrite>
+    <% end %>
+  </system.webServer>
+</configuration>

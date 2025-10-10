@@ -1,0 +1,25 @@
+{
+  "name": "production-simulation",
+  "description": "Production simulation environment for Elite Golf POC",
+  "cookbook_versions": {
+    "elite-golf-cookbook": "= 1.0.0"
+  },
+  "json_class": "Chef::Environment",
+  "chef_type": "environment",
+  "default_attributes": {
+    "golf_app": {
+      "lab_mode": false,
+      "customer_name": "Production Simulation",
+      "port": 80,
+      "ssl_port": 443,
+      "enable_ssl": true,
+      "quick_setup": false,
+      "compliance_mode": true,
+      "audit_logging": true,
+      "health_check": true,
+      "metrics_enabled": true,
+      "demo_data": false
+    }
+  },
+  "override_attributes": {}
+}

@@ -1,0 +1,23 @@
+{
+  "name": "development",
+  "description": "Development environment for Elite Golf POC",
+  "cookbook_versions": {
+    "elite-golf-cookbook": "= 1.0.0"
+  },
+  "json_class": "Chef::Environment",
+  "chef_type": "environment",
+  "default_attributes": {
+    "golf_app": {
+      "lab_mode": true,
+      "customer_name": "Development Demo",
+      "port": 3000,
+      "ssl_port": 3443,
+      "enable_ssl": false,
+      "quick_setup": true,
+      "compliance_mode": false,
+      "audit_logging": false,
+      "maintenance_mode": false
+    }
+  },
+  "override_attributes": {}
+}

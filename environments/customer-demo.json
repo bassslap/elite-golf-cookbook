@@ -1,0 +1,25 @@
+{
+  "name": "customer-demo",
+  "description": "Customer demonstration environment for Elite Golf POC",
+  "cookbook_versions": {
+    "elite-golf-cookbook": "= 1.0.0"
+  },
+  "json_class": "Chef::Environment",
+  "chef_type": "environment",
+  "default_attributes": {
+    "golf_app": {
+      "lab_mode": true,
+      "customer_name": "Acme Corporation",
+      "port": 8080,
+      "ssl_port": 8443,
+      "enable_ssl": false,
+      "quick_setup": true,
+      "compliance_mode": true,
+      "audit_logging": true,
+      "health_check": true,
+      "metrics_enabled": true,
+      "demo_data": true
+    }
+  },
+  "override_attributes": {}
+}
