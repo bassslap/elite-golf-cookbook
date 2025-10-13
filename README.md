@@ -350,9 +350,20 @@ You should see the Elite Golf Club website with:
 - Test Apache configuration: `sudo apache2ctl configtest`
 
 #### Common Issues
-- **Port conflicts**: Change the port in attributes if default port is in use
+
+**Windows-Specific Issues:**
+- **IIS dependency errors**: This cookbook now uses native PowerShell commands instead of the IIS cookbook to avoid dependency issues
+- **Application pool errors**: Check if the application pool is running in IIS Manager
+- **Port conflicts**: Change the port in attributes if default port is in use (common in lab environments)
+- **Permission errors**: Ensure IIS_IUSRS has read access to the web root directory
+
+**Linux-Specific Issues:**
 - **Permission errors**: Verify web server user has read access to web files
+- **Apache module errors**: Ensure all required modules are installed and enabled
+
+**General Issues:**
 - **SSL certificate errors**: For production, replace self-signed certificates with proper SSL certificates
+- **Chef cookbook dependency errors**: This cookbook has been updated to minimize external dependencies
 
 ## Customization
 
