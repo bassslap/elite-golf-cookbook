@@ -8,7 +8,30 @@
 begin
   require 'win32/service'
 rescue LoadError
-  Chef::Log.warn("Win32::Service not available - service checks will be skipped")
+  Chef::Log.warn("Win32::Service not avail      # Check if Elite Golf site already exists and is working
+      $existingSite = Get-Website -Name $siteName -ErrorAction SilentlyContinue
+      if ($existingSite -and $existingSite.State -eq "Started") {
+        Write-Host "Elite Golf Site already exists and is running - skipping recreation"
+        return
+      }
+      
+      # Stop Default Web Site if it exists (but don't remove it completely)
+      $defaultSite = Get-Website -Name "Default Web Site" -ErrorAction SilentlyContinue
+      if ($defaultSite -and $defaultSite.State -eq "Started") {
+        Write-Host "Stopping Default Web Site to avoid port conflicts..."
+        Stop-Website -Name "Default Web Site" -ErrorAction SilentlyContinue
+        Write-Host "Default Web Site stopped"
+      }
+      
+      # Remove existing Elite Golf site if it exists to recreate it properly
+      if ($existingSite) {
+        Remove-Website -Name $siteName -ErrorAction SilentlyContinue
+        Write-Host "Removed existing website: $siteName for recreation"
+      }
+      
+      # Create Elite Golf Site
+      New-Website -Name $siteName -Port $port -PhysicalPath $physicalPath -ApplicationPool $appPoolName -ErrorAction Stop
+      Write-Host "Website $siteName created successfully on port $port via PowerShell"ecks will be skipped")
 end
 
 # Install IIS features using PowerShell with correct Windows 10 feature names
@@ -222,10 +245,10 @@ powershell_script 'create_golf_app_pool_fallback' do
   ignore_failure true
 end
 
-# PERMANENT FIX: Remove Default Web Site completely (appcmd method)
-execute 'remove_default_website' do
-  command %Q{C:\\Windows\\System32\\inetsrv\\appcmd.exe delete site "Default Web Site"}
-  only_if %Q{C:\\Windows\\System32\\inetsrv\\appcmd.exe list site "Default Web Site" >nul 2>&1}
+# Stop Default Web Site to avoid port conflicts (appcmd method)
+execute 'stop_default_website' do
+  command %Q{C:\\Windows\\System32\\inetsrv\\appcmd.exe stop site "Default Web Site"}
+  only_if %Q{C:\\Windows\\System32\\inetsrv\\appcmd.exe list site "Default Web Site" /state:Started >nul 2>&1}
   only_if { ::File.exist?('C:\\Windows\\System32\\inetsrv\\appcmd.exe') }
   ignore_failure true
 end
@@ -364,12 +387,12 @@ powershell_script 'configure_primary_website' do
     try {
       Write-Host "Configuring Elite Golf Site as primary website..."
       
-      # PERMANENT FIX: Remove Default Web Site if it still exists
+      # Stop Default Web Site if it's running to avoid port conflicts
       $defaultSite = Get-Website -Name "Default Web Site" -ErrorAction SilentlyContinue
-      if ($defaultSite) {
-        Write-Host "Permanently removing Default Web Site to prevent future conflicts..."
-        Remove-Website -Name "Default Web Site" -ErrorAction SilentlyContinue
-        Write-Host "Default Web Site permanently removed"
+      if ($defaultSite -and $defaultSite.State -eq "Started") {
+        Write-Host "Stopping Default Web Site to prevent port conflicts..."
+        Stop-Website -Name "Default Web Site" -ErrorAction SilentlyContinue
+        Write-Host "Default Web Site stopped"
       }
       
       # Ensure Elite Golf Site is started and configured properly
@@ -386,25 +409,44 @@ powershell_script 'configure_primary_website' do
         Write-Host "Warning: Elite Golf Site not found - this should not happen"
       }
       
-      # Validate that Elite Golf Site is the ONLY site and is primary
+      # Validate and fix Elite Golf Site configuration
       $allSites = Get-Website
-      $golfSiteOnly = $allSites | Where-Object {$_.Name -eq "Elite Golf Site"}
+      $golfSite = $allSites | Where-Object {$_.Name -eq "Elite Golf Site"}
       $defaultSiteExists = $allSites | Where-Object {$_.Name -eq "Default Web Site"}
       
       if ($defaultSiteExists) {
-        Write-Host "ERROR: Default Web Site still exists - this should not happen!"
-      } else {
-        Write-Host "SUCCESS: Default Web Site is permanently removed"
+        Write-Host "WARNING: Default Web Site still exists - stopping it"
+        Stop-Website -Name "Default Web Site" -ErrorAction SilentlyContinue
       }
       
-      if ($golfSiteOnly -and $golfSiteOnly.State -eq "Started") {
-        Write-Host "SUCCESS: Elite Golf Site is running as the primary website"
-        Write-Host "Site ID: $($golfSiteOnly.ID) (should be 1 for primary position)"
+      if ($golfSite) {
+        $currentPort = ($golfSite.Bindings.Collection.bindingInformation -split ':')[1]
+        $currentPath = $golfSite.PhysicalPath
+        
+        Write-Host "Current Elite Golf Site configuration:"
+        Write-Host "  Port: $currentPort (expected: #{node['golf_app']['port']})"
+        Write-Host "  Path: $currentPath (expected: #{node['golf_app']['web_root']})"
+        
+        # Fix port if wrong
+        if ($currentPort -ne "#{node['golf_app']['port']}") {
+          Write-Host "FIXING: Correcting port from $currentPort to #{node['golf_app']['port']}"
+          Stop-Website -Name "Elite Golf Site" -ErrorAction SilentlyContinue
+          Set-ItemProperty -Path "IIS:\\Sites\\Elite Golf Site" -Name "bindings" -Value @{protocol="http";bindingInformation="*:#{node['golf_app']['port']}:"}
+          Start-Website -Name "Elite Golf Site" -ErrorAction SilentlyContinue
+        }
+        
+        # Fix path if wrong
+        if ($currentPath -ne "#{node['golf_app']['web_root']}") {
+          Write-Host "FIXING: Correcting path from '$currentPath' to '#{node['golf_app']['web_root']}'"
+          Set-ItemProperty -Path "IIS:\\Sites\\Elite Golf Site" -Name "physicalPath" -Value "#{node['golf_app']['web_root']}"
+        }
+        
+        Write-Host "SUCCESS: Elite Golf Site validated and corrected if needed"
       } else {
-        Write-Host "WARNING: Elite Golf Site configuration issue"
+        Write-Host "ERROR: Elite Golf Site not found!"
       }
       
-      # List all websites for debugging
+      # Final configuration display
       Write-Host "Final website configuration:"
       Get-Website | Format-Table Name, ID, State, PhysicalPath, @{Name="Port";Expression={($_.Bindings.Collection.bindingInformation -split ':')[1]}} -AutoSize
       

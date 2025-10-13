@@ -8,16 +8,16 @@ default['golf_app']['quick_setup'] = true
 
 # Demo-specific overrides
 if node['golf_app']['lab_mode']
-  # Use non-standard ports to avoid conflicts in lab environments
-  default['golf_app']['port'] = 8080
-  default['golf_app']['ssl_port'] = 8443
+  # Use standard HTTP port for customer demos (80 is expected)
+  default['golf_app']['port'] = 80
+  default['golf_app']['ssl_port'] = 443
   
-  # Simplified paths for demo
+  # Use standard IIS paths for better compatibility
   case node['platform']
   when 'windows'
-    default['golf_app']['web_root'] = 'C:/demo/golf-app'
+    default['golf_app']['web_root'] = 'C:/inetpub/wwwroot/golf'
   else
-    default['golf_app']['web_root'] = '/opt/demo/golf-app'
+    default['golf_app']['web_root'] = '/var/www/html/golf'
   end
   
   # Demo monitoring settings
