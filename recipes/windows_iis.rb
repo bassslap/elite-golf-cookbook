@@ -4,6 +4,13 @@
 #
 # Configures IIS for the Elite Golf web application on Windows
 
+# Require Win32::Service for service checks
+begin
+  require 'win32/service'
+rescue LoadError
+  Chef::Log.warn("Win32::Service not available - service checks will be skipped")
+end
+
 # Install IIS features using PowerShell with correct Windows 10 feature names
 powershell_script 'enable_iis_features' do
   code <<-EOH
@@ -52,15 +59,29 @@ powershell_script 'enable_iis_features' do
   not_if 'Get-WindowsOptionalFeature -Online -FeatureName IIS-WebServer | Where-Object {$_.State -eq "Enabled"}'
 end
 
-# Ensure IIS services are started before proceeding
-service 'W3SVC' do
-  action [:enable, :start]
-end
-
-# Wait for appcmd to be available
-ruby_block 'wait_for_appcmd' do
+# Wait for IIS services and components to be available
+ruby_block 'wait_for_iis_services' do
   block do
     require 'timeout'
+    
+    Chef::Log.info("Waiting for IIS services to become available...")
+    
+    # Wait up to 5 minutes for W3SVC service to exist
+    if defined?(Win32::Service)
+      Timeout.timeout(300) do
+        until Win32::Service.exists?('W3SVC')
+          Chef::Log.info("Waiting for W3SVC service to be created...")
+          sleep(5)
+        end
+      end
+      Chef::Log.info("W3SVC service is now available")
+    else
+      # Fallback: just wait a reasonable amount of time for IIS to be ready
+      Chef::Log.info("Win32::Service not available, waiting 60 seconds for IIS setup...")
+      sleep(60)
+    end
+    
+    # Wait for appcmd.exe to be available
     Timeout.timeout(120) do
       until ::File.exist?('C:\\Windows\\System32\\inetsrv\\appcmd.exe')
         Chef::Log.info("Waiting for appcmd.exe to be available...")
@@ -70,6 +91,14 @@ ruby_block 'wait_for_appcmd' do
     Chef::Log.info("appcmd.exe is now available")
   end
   action :run
+end
+
+# Now safely start IIS services
+service 'W3SVC' do
+  action [:enable, :start]
+  retries 5
+  retry_delay 10
+  ignore_failure true  # Don't fail the entire run if service isn't ready yet
 end
 
 # Create application pool using appcmd if available, otherwise use PowerShell
@@ -199,9 +228,11 @@ if node['golf_app']['enable_ssl']
   end
 end
 
-# Start IIS service
+# Restart IIS service to apply all configuration changes
 service 'W3SVC' do
-  action [:enable, :start]
+  action :restart
+  only_if { defined?(Win32::Service) && Win32::Service.exists?('W3SVC') }
+  ignore_failure true
 end
 
 # Verify IIS is responding (simple check without WebAdministration module)
