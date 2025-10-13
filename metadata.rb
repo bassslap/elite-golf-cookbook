@@ -4,7 +4,7 @@ maintainer_email 'admin@elitegolf.com'
 license 'Apache-2.0'
 description 'Deploys a simple golf-themed web application'
 long_description 'A Chef cookbook that deploys a simple web application with golf theme, supporting both Windows IIS and Linux web servers'
-version '1.0.21'
+version '1.0.22'
 chef_version '>= 14.0'
 
 supports 'windows'
