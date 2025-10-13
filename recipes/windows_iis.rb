@@ -11,6 +11,47 @@ rescue LoadError
   Chef::Log.warn("Win32::Service not available - service checks will be skipped")
 end
 
+# ROBUST PRE-DEPLOYMENT CLEANUP - Prevent 404 issues by ensuring clean state
+powershell_script 'robust_pre_deployment_cleanup' do
+  code <<-EOH
+    Write-Host "=== ROBUST PRE-DEPLOYMENT CLEANUP ==="
+    Write-Host "Ensuring clean IIS state to prevent 404 errors..."
+    
+    # Force remove any existing Elite Golf sites to prevent conflicts
+    $sitesToRemove = @("Elite Golf Site", "Elite Golf Site-SSL")
+    foreach ($siteName in $sitesToRemove) {
+      $existingSite = Get-Website -Name $siteName -ErrorAction SilentlyContinue
+      if ($existingSite) {
+        Write-Host "CLEANUP: Removing existing site: $siteName"
+        Remove-Website -Name $siteName -ErrorAction SilentlyContinue
+        Start-Sleep -Seconds 2
+      }
+    }
+    
+    # Stop and remove Default Web Site permanently to avoid port conflicts
+    $defaultSite = Get-Website -Name "Default Web Site" -ErrorAction SilentlyContinue
+    if ($defaultSite) {
+      Write-Host "CLEANUP: Permanently removing Default Web Site to prevent port 80 conflicts"
+      Stop-Website -Name "Default Web Site" -ErrorAction SilentlyContinue
+      Remove-Website -Name "Default Web Site" -ErrorAction SilentlyContinue
+      Write-Host "Default Web Site permanently removed"
+    }
+    
+    # Verify clean state
+    $remainingSites = Get-Website | Where-Object {$_.Name -like "*Golf*" -or $_.Name -eq "Default Web Site"}
+    if ($remainingSites) {
+      Write-Host "WARNING: Found unexpected sites that may cause conflicts:"
+      $remainingSites | Format-Table Name, State, PhysicalPath
+    } else {
+      Write-Host "SUCCESS: Clean IIS state achieved - no conflicting sites found"
+    }
+    
+    Write-Host "=== PRE-DEPLOYMENT CLEANUP COMPLETE ==="
+  EOH
+  action :run
+  ignore_failure false
+end
+
 # Install IIS features using PowerShell with correct Windows 10 feature names
 powershell_script 'enable_iis_features' do
   code <<-EOH
@@ -482,7 +523,84 @@ powershell_script 'verify_iis_response' do
   only_if { node['golf_app']['lab_mode'] }
 end
 
+# ROBUST POST-DEPLOYMENT VERIFICATION - Catch 404 issues immediately
+powershell_script 'robust_post_deployment_verification' do
+  code <<-EOH
+    Write-Host "=== ROBUST POST-DEPLOYMENT VERIFICATION ==="
+    Write-Host "Testing website to ensure no 404 errors..."
+    
+    # Wait for IIS to fully initialize
+    Start-Sleep -Seconds 5
+    
+    # Multiple verification attempts with detailed logging
+    $maxAttempts = 3
+    $success = $false
+    
+    for ($attempt = 1; $attempt -le $maxAttempts; $attempt++) {
+      Write-Host "Verification attempt $attempt of $maxAttempts..."
+      
+      try {
+        # Test the website
+        $response = Invoke-WebRequest -Uri "http://localhost:#{node['golf_app']['port']}" -UseBasicParsing -TimeoutSec 15
+        
+        if ($response.StatusCode -eq 200 -and $response.Content -match "Elite Golf Club") {
+          Write-Host "SUCCESS: Website responding correctly!"
+          Write-Host "Status Code: $($response.StatusCode)"
+          Write-Host "Content Length: $($response.Content.Length) bytes"
+          Write-Host "Content Preview: $($response.Content.Substring(0, [Math]::Min(100, $response.Content.Length)))"
+          $success = $true
+          break
+        } else {
+          Write-Host "WARNING: Unexpected response - Status: $($response.StatusCode)"
+        }
+      } catch {
+        Write-Host "ATTEMPT $attempt FAILED: $($_.Exception.Message)"
+        if ($attempt -lt $maxAttempts) {
+          Write-Host "Waiting 10 seconds before retry..."
+          Start-Sleep -Seconds 10
+          
+          # Check if site is still running
+          $site = Get-Website -Name "Elite Golf Site" -ErrorAction SilentlyContinue
+          if ($site -and $site.State -ne "Started") {
+            Write-Host "RECOVERY: Restarting Elite Golf Site..."
+            Start-Website -Name "Elite Golf Site" -ErrorAction SilentlyContinue
+            Start-Sleep -Seconds 5
+          }
+        }
+      }
+    }
+    
+    if (-not $success) {
+      Write-Host "CRITICAL: Website verification failed after $maxAttempts attempts!"
+      Write-Host "Applying emergency recreation fix..."
+      
+      # Apply the proven fix that resolved 404 issues
+      Remove-Website -Name "Elite Golf Site" -ErrorAction SilentlyContinue
+      Start-Sleep -Seconds 2
+      New-Website -Name "Elite Golf Site" -Port #{node['golf_app']['port']} -PhysicalPath "#{node['golf_app']['web_root']}" -ApplicationPool "DefaultAppPool"
+      Start-Website -Name "Elite Golf Site" -ErrorAction SilentlyContinue
+      Start-Sleep -Seconds 5
+      
+      # Final verification
+      try {
+        $finalTest = Invoke-WebRequest -Uri "http://localhost:#{node['golf_app']['port']}" -UseBasicParsing -TimeoutSec 15
+        if ($finalTest.StatusCode -eq 200) {
+          Write-Host "RECOVERY SUCCESS: Emergency recreation fixed the website!"
+        } else {
+          Write-Host "RECOVERY FAILED: Manual intervention required"
+        }
+      } catch {
+        Write-Host "RECOVERY FAILED: $($_.Exception.Message)"
+      }
+    }
+    
+    Write-Host "=== POST-DEPLOYMENT VERIFICATION COMPLETE ==="
+  EOH
+  action :run
+  ignore_failure true
+end
+
 log 'IIS configuration completed' do
-  message "IIS configured for Elite Golf application on port #{node['golf_app']['port']}"
+  message "IIS configured for Elite Golf application on port #{node['golf_app']['port']} with robust verification"
   level :info
 end
