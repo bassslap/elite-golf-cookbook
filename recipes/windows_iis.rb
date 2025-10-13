@@ -8,30 +8,7 @@
 begin
   require 'win32/service'
 rescue LoadError
-  Chef::Log.warn("Win32::Service not avail      # Check if Elite Golf site already exists and is working
-      $existingSite = Get-Website -Name $siteName -ErrorAction SilentlyContinue
-      if ($existingSite -and $existingSite.State -eq "Started") {
-        Write-Host "Elite Golf Site already exists and is running - skipping recreation"
-        return
-      }
-      
-      # Stop Default Web Site if it exists (but don't remove it completely)
-      $defaultSite = Get-Website -Name "Default Web Site" -ErrorAction SilentlyContinue
-      if ($defaultSite -and $defaultSite.State -eq "Started") {
-        Write-Host "Stopping Default Web Site to avoid port conflicts..."
-        Stop-Website -Name "Default Web Site" -ErrorAction SilentlyContinue
-        Write-Host "Default Web Site stopped"
-      }
-      
-      # Remove existing Elite Golf site if it exists to recreate it properly
-      if ($existingSite) {
-        Remove-Website -Name $siteName -ErrorAction SilentlyContinue
-        Write-Host "Removed existing website: $siteName for recreation"
-      }
-      
-      # Create Elite Golf Site
-      New-Website -Name $siteName -Port $port -PhysicalPath $physicalPath -ApplicationPool $appPoolName -ErrorAction Stop
-      Write-Host "Website $siteName created successfully on port $port via PowerShell"ecks will be skipped")
+  Chef::Log.warn("Win32::Service not available - service checks will be skipped")
 end
 
 # Install IIS features using PowerShell with correct Windows 10 feature names
