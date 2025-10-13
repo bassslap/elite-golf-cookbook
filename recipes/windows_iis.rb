@@ -189,7 +189,6 @@ execute 'create_golf_website' do
   only_if { ::File.exist?('C:\\Windows\\System32\\inetsrv\\appcmd.exe') }
   retries 3
   retry_delay 5
-  notifies :restart, 'service[W3SVC]', :delayed
 end
 
 # Fallback: Create website using PowerShell if appcmd is not available
@@ -231,7 +230,6 @@ powershell_script 'create_golf_website_fallback' do
   EOH
   not_if { ::File.exist?('C:\\Windows\\System32\\inetsrv\\appcmd.exe') }
   action :run
-  notifies :restart, 'service[W3SVC]', :delayed
 end
 
 # Deploy web.config
@@ -258,7 +256,6 @@ if node['golf_app']['enable_ssl']
     not_if %Q{%windir%\\system32\\inetsrv\\appcmd list site "#{node['golf_app']['site_name']}-SSL"}
     retries 3
     retry_delay 5
-    notifies :restart, 'service[W3SVC]', :delayed
   end
 end
 
