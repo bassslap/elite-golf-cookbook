@@ -59,37 +59,61 @@ powershell_script 'enable_iis_features' do
   not_if 'Get-WindowsOptionalFeature -Online -FeatureName IIS-WebServer | Where-Object {$_.State -eq "Enabled"}'
 end
 
-# Wait for IIS services and components to be available
-ruby_block 'wait_for_iis_services' do
-  block do
-    require 'timeout'
+# Wait for IIS services and components to be available using PowerShell
+powershell_script 'wait_for_iis_components' do
+  code <<-EOH
+    Write-Host "Waiting for IIS components to be ready..."
     
-    Chef::Log.info("Waiting for IIS services to become available...")
+    # Wait up to 3 minutes for IIS components with shorter intervals
+    $maxWaitTime = 180  # 3 minutes
+    $waitInterval = 5   # 5 seconds
+    $elapsedTime = 0
     
-    # Wait up to 5 minutes for W3SVC service to exist
-    if defined?(Win32::Service)
-      Timeout.timeout(300) do
-        until Win32::Service.exists?('W3SVC')
-          Chef::Log.info("Waiting for W3SVC service to be created...")
-          sleep(5)
-        end
-      end
-      Chef::Log.info("W3SVC service is now available")
-    else
-      # Fallback: just wait a reasonable amount of time for IIS to be ready
-      Chef::Log.info("Win32::Service not available, waiting 60 seconds for IIS setup...")
-      sleep(60)
-    end
+    do {
+      $iisReady = $true
+      
+      # Check if IIS Management Service exists (this indicates IIS is properly installed)
+      $iisAdmin = Get-Service -Name "IISADMIN" -ErrorAction SilentlyContinue
+      if (-not $iisAdmin) {
+        $iisReady = $false
+        Write-Host "Waiting for IISADMIN service... ($elapsedTime seconds elapsed)"
+      }
+      
+      # Check if appcmd.exe exists
+      if (-not (Test-Path "C:\\Windows\\System32\\inetsrv\\appcmd.exe")) {
+        $iisReady = $false
+        Write-Host "Waiting for appcmd.exe... ($elapsedTime seconds elapsed)"
+      }
+      
+      if (-not $iisReady) {
+        Start-Sleep -Seconds $waitInterval
+        $elapsedTime += $waitInterval
+      }
+      
+    } while (-not $iisReady -and $elapsedTime -lt $maxWaitTime)
     
-    # Wait for appcmd.exe to be available
-    Timeout.timeout(120) do
-      until ::File.exist?('C:\\Windows\\System32\\inetsrv\\appcmd.exe')
-        Chef::Log.info("Waiting for appcmd.exe to be available...")
-        sleep(2)
-      end
-    end
-    Chef::Log.info("appcmd.exe is now available")
-  end
+    if ($iisReady) {
+      Write-Host "IIS components are ready!"
+      
+      # Try to start IIS services if they exist but aren't running
+      try {
+        $services = @("IISADMIN", "W3SVC", "WAS")
+        foreach ($serviceName in $services) {
+          $service = Get-Service -Name $serviceName -ErrorAction SilentlyContinue
+          if ($service -and $service.Status -ne "Running") {
+            Write-Host "Starting $serviceName service..."
+            Start-Service -Name $serviceName -ErrorAction SilentlyContinue
+            Start-Sleep -Seconds 2
+          }
+        }
+      } catch {
+        Write-Host "Note: Some IIS services may need system reboot to be fully available"
+      }
+    } else {
+      Write-Host "Warning: IIS components not fully ready after $maxWaitTime seconds"
+      Write-Host "Continuing with deployment - services may start during configuration..."
+    }
+  EOH
   action :run
 end
 
