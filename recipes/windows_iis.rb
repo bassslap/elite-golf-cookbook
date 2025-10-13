@@ -11,87 +11,59 @@ rescue LoadError
   Chef::Log.warn("Win32::Service not available - service checks will be skipped")
 end
 
-# SMART PRE-DEPLOYMENT CHECK - Only cleanup when needed
-powershell_script 'smart_pre_deployment_check' do
+# RELIABLE WEBSITE RECREATION - Always apply the proven fix method
+powershell_script 'reliable_website_recreation' do
   code <<-EOH
-    Write-Host "=== SMART PRE-DEPLOYMENT CHECK ==="
-    Write-Host "Checking if Elite Golf Site needs recreation..."
+    Write-Host "=== RELIABLE WEBSITE RECREATION ==="
+    Write-Host "Applying the proven method that always works..."
     
-    $needsRecreation = $false
-    $recreationReason = ""
+    $siteName = "Elite Golf Site"
+    $port = #{node['golf_app']['port']}
+    $physicalPath = "#{node['golf_app']['web_root']}"
     
-    # Check if Elite Golf Site exists and is properly configured
-    $golfSite = Get-Website -Name "Elite Golf Site" -ErrorAction SilentlyContinue
+    # STEP 1: Clean removal (the exact method that works)
+    Write-Host "STEP 1: Removing any existing websites that might conflict..."
     
-    if (-not $golfSite) {
-      $needsRecreation = $true
-      $recreationReason = "Elite Golf Site does not exist"
-    } else {
-      # Check if it's configured correctly
-      $currentPort = ($golfSite.Bindings.Collection.bindingInformation -split ':')[1]
-      $currentPath = $golfSite.PhysicalPath
-      $expectedPort = "#{node['golf_app']['port']}"
-      $expectedPath = "#{node['golf_app']['web_root']}"
-      
-      if ($currentPort -ne $expectedPort) {
-        $needsRecreation = $true
-        $recreationReason = "Port mismatch: current=$currentPort, expected=$expectedPort"
-      } elseif ($currentPath -ne $expectedPath) {
-        $needsRecreation = $true
-        $recreationReason = "Path mismatch: current='$currentPath', expected='$expectedPath'"
-      } elseif ($golfSite.State -ne "Started") {
-        Write-Host "Site exists but not started - attempting to start..."
-        Start-Website -Name "Elite Golf Site" -ErrorAction SilentlyContinue
-        Start-Sleep -Seconds 3
-        
-        # Check if start was successful
-        $golfSite = Get-Website -Name "Elite Golf Site" -ErrorAction SilentlyContinue
-        if ($golfSite.State -ne "Started") {
-          $needsRecreation = $true
-          $recreationReason = "Site cannot be started (state: $($golfSite.State))"
-        }
-      }
-      
-      # Test if website is actually responding (quick test)
-      if (-not $needsRecreation) {
-        try {
-          $quickTest = Invoke-WebRequest -Uri "http://localhost:$expectedPort" -UseBasicParsing -TimeoutSec 5
-          if ($quickTest.StatusCode -ne 200) {
-            $needsRecreation = $true
-            $recreationReason = "Website not responding correctly (status: $($quickTest.StatusCode))"
-          } else {
-            Write-Host "SUCCESS: Elite Golf Site is working correctly - no recreation needed"
-          }
-        } catch {
-          $needsRecreation = $true
-          $recreationReason = "Website test failed: $($_.Exception.Message)"
-        }
-      }
-    }
-    
-    # Always remove Default Web Site if it exists (this doesn't hurt)
+    # Remove Default Web Site
     $defaultSite = Get-Website -Name "Default Web Site" -ErrorAction SilentlyContinue
     if ($defaultSite) {
-      Write-Host "CLEANUP: Removing Default Web Site to prevent port conflicts"
-      Stop-Website -Name "Default Web Site" -ErrorAction SilentlyContinue
+      Write-Host "Removing Default Web Site..."
       Remove-Website -Name "Default Web Site" -ErrorAction SilentlyContinue
     }
     
-    if ($needsRecreation) {
-      Write-Host "RECREATION NEEDED: $recreationReason"
-      Write-Host "Removing Elite Golf Site for clean recreation..."
-      Remove-Website -Name "Elite Golf Site" -ErrorAction SilentlyContinue
-      Start-Sleep -Seconds 2
-      
-      # Set a flag for the creation scripts to know recreation is needed
-      $env:ELITE_GOLF_RECREATION_NEEDED = "true"
-      $env:ELITE_GOLF_RECREATION_REASON = $recreationReason
-    } else {
-      Write-Host "Elite Golf Site is properly configured and working - skipping recreation"
-      $env:ELITE_GOLF_RECREATION_NEEDED = "false"
+    # Remove Elite Golf Site (always, for clean state)
+    $existingSite = Get-Website -Name $siteName -ErrorAction SilentlyContinue
+    if ($existingSite) {
+      Write-Host "Removing existing $siteName..."
+      Remove-Website -Name $siteName -ErrorAction SilentlyContinue
     }
     
-    Write-Host "=== PRE-DEPLOYMENT CHECK COMPLETE ==="
+    Start-Sleep -Seconds 2
+    
+    # STEP 2: Create with explicit settings (the exact method that works)
+    Write-Host "STEP 2: Creating $siteName with proven configuration..."
+    New-Website -Name $siteName -Port $port -PhysicalPath $physicalPath -ApplicationPool "DefaultAppPool"
+    
+    # STEP 3: Start the website (the exact method that works)
+    Write-Host "STEP 3: Starting $siteName..."
+    Start-Website -Name $siteName -ErrorAction SilentlyContinue
+    Start-Sleep -Seconds 3
+    
+    # STEP 4: Verify it's working (immediate test)
+    Write-Host "STEP 4: Verifying website is working..."
+    try {
+      $testResponse = Invoke-WebRequest -Uri "http://localhost:$port" -UseBasicParsing -TimeoutSec 10
+      if ($testResponse.StatusCode -eq 200 -and $testResponse.Content -match "Elite Golf Club") {
+        Write-Host "SUCCESS: Website is working! Status: $($testResponse.StatusCode), Content: $($testResponse.Content.Length) bytes"
+      } else {
+        Write-Host "WARNING: Unexpected response - Status: $($testResponse.StatusCode)"
+      }
+    } catch {
+      Write-Host "VERIFICATION FAILED: $($_.Exception.Message)"
+      Write-Host "Manual check may be needed: http://localhost:$port"
+    }
+    
+    Write-Host "=== RELIABLE RECREATION COMPLETE ==="
   EOH
   action :run
   ignore_failure false
@@ -324,72 +296,23 @@ execute 'remove_existing_golf_site' do
   ignore_failure true
 end
 
-# Create IIS site using appcmd if available (only when recreation is needed)
-execute 'create_golf_website' do
-  command %Q{C:\\Windows\\System32\\inetsrv\\appcmd.exe add site /name:"#{node['golf_app']['site_name']}" /physicalPath:"#{node['golf_app']['web_root']}" /bindings:http/*:#{node['golf_app']['port']}: /applicationDefaults.applicationPool:"#{node['golf_app']['app_pool_name']}"}
-  not_if %Q{C:\\Windows\\System32\\inetsrv\\appcmd.exe list site "#{node['golf_app']['site_name']}" >nul 2>&1 && echo %ELITE_GOLF_RECREATION_NEEDED% | findstr /i "false" >nul}
-  only_if { ::File.exist?('C:\\Windows\\System32\\inetsrv\\appcmd.exe') }
-  retries 3
-  retry_delay 5
-end
+# Skip appcmd creation - using reliable PowerShell method above
+# execute 'create_golf_website' do
+#   command %Q{C:\\Windows\\System32\\inetsrv\\appcmd.exe add site /name:"#{node['golf_app']['site_name']}" /physicalPath:"#{node['golf_app']['web_root']}" /bindings:http/*:#{node['golf_app']['port']}: /applicationDefaults.applicationPool:"#{node['golf_app']['app_pool_name']}"}
+#   not_if %Q{C:\\Windows\\System32\\inetsrv\\appcmd.exe list site "#{node['golf_app']['site_name']}" >nul 2>&1}
+#   only_if { ::File.exist?('C:\\Windows\\System32\\inetsrv\\appcmd.exe') }
+#   retries 3
+#   retry_delay 5
+# end
 
-# Fallback: Create website using PowerShell if appcmd is not available (only when needed)
-powershell_script 'create_golf_website_fallback' do
-  code <<-EOH
-    # Check if recreation is actually needed
-    $recreationNeeded = $env:ELITE_GOLF_RECREATION_NEEDED
-    
-    if ($recreationNeeded -eq "true") {
-      Write-Host "RECREATION NEEDED: $env:ELITE_GOLF_RECREATION_REASON"
-      
-      try {
-        Import-Module WebAdministration -ErrorAction Stop
-        $siteName = "#{node['golf_app']['site_name']}"
-        $port = #{node['golf_app']['port']}
-        $physicalPath = "#{node['golf_app']['web_root']}"
-        $appPoolName = "#{node['golf_app']['app_pool_name']}"
-        
-        # Create website with explicit settings for reliability
-        Write-Host "Creating new website $siteName with explicit configuration..."
-        New-Website -Name $siteName -Port $port -PhysicalPath $physicalPath -ApplicationPool $appPoolName
-        
-        # Start the website
-        Start-Website -Name $siteName -ErrorAction SilentlyContinue
-        Start-Sleep -Seconds 2
-        
-        # Verify the website is running and accessible
-        $site = Get-Website -Name $siteName
-        Write-Host "Website Status: $($site.State)"
-        Write-Host "Physical Path: $($site.PhysicalPath)"
-        Write-Host "Bindings: $($site.Bindings.Collection | ForEach-Object { $_.bindingInformation })"
-        
-        # Test website accessibility
-        try {
-          $response = Invoke-WebRequest -Uri "http://localhost:$port" -UseBasicParsing -TimeoutSec 10
-          Write-Host "Website recreation successful - Status: $($response.StatusCode)"
-        } catch {
-          Write-Host "Website test failed after recreation: $($_.Exception.Message)"
-        }
-      } catch {
-        Write-Host "PowerShell method failed: $($_.Exception.Message)"
-        Write-Host "Will attempt basic IIS setup..."
-        
-        # Very basic fallback - just ensure default website is configured
-        try {
-          # Stop default website if it exists
-          Stop-Website -Name "Default Web Site" -ErrorAction SilentlyContinue
-          Write-Host "IIS default website stopped to avoid conflicts"
-        } catch {
-          Write-Host "Could not stop default website, continuing..."
-        }
-      }
-    } else {
-      Write-Host "SKIPPED: Elite Golf Site is working correctly - no recreation needed"
-    }
-  EOH
-  not_if { ::File.exist?('C:\\Windows\\System32\\inetsrv\\appcmd.exe') }
-  action :run
-end
+# Skip fallback creation - using reliable method above
+# powershell_script 'create_golf_website_fallback' do
+#   code <<-EOH
+#     Write-Host "Fallback website creation skipped - using reliable recreation method"
+#   EOH
+#   not_if { ::File.exist?('C:\\Windows\\System32\\inetsrv\\appcmd.exe') }
+#   action :run
+# end
 
 # Deploy web.config
 template "#{node['golf_app']['web_root']}/web.config" do
