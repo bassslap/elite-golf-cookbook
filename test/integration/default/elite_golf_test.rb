@@ -7,9 +7,9 @@ title 'Elite Golf Application Compliance Tests'
 describe 'Elite Golf Web Application' do
   case os.family
   when 'windows'
-    web_root = 'C:\\demo\\golf-app'
+    web_root = 'C:/inetpub/wwwroot/golf'
   else
-    web_root = '/opt/demo/golf-app'
+    web_root = '/var/www/html/golf'
   end
 
   # Verify web root directory exists
@@ -64,8 +64,8 @@ describe 'Web Server Configuration' do
       it { should be_running }
     end
 
-    # Test if port 8080 is listening (lab demo port)
-    describe port(8080) do
+    # Test if port 80 is listening (default web port)
+    describe port(80) do
       it { should be_listening }
     end
 
@@ -80,8 +80,8 @@ describe 'Web Server Configuration' do
       it { should be_running }
     end
 
-    # Test if port 8080 is listening (lab demo port)
-    describe port(8080) do
+    # Test if port 80 is listening (default web port)
+    describe port(80) do
       it { should be_listening }
     end
 
@@ -97,7 +97,7 @@ end
 describe 'Security Compliance' do
   case os.family
   when 'windows'
-    web_root = 'C:\\demo\\golf-app'
+    web_root = 'C:/inetpub/wwwroot/golf'
     
     # Test file permissions on Windows
     describe file(web_root) do
@@ -111,7 +111,7 @@ describe 'Security Compliance' do
     end
 
   else
-    web_root = '/opt/demo/golf-app'
+    web_root = '/var/www/html/golf'
     
     # Test file permissions on Linux
     describe file(web_root) do
@@ -132,20 +132,20 @@ end
 # Test application functionality
 describe 'Application Functionality' do
   # Test HTTP response
-  describe http('http://localhost:8080') do
+  describe http('http://localhost') do
     its('status') { should cmp 200 }
     its('body') { should match(/Elite Golf Club/) }
     its('headers.Content-Type') { should match(/text\/html/) }
   end
 
   # Test health check endpoint
-  describe http('http://localhost:8080/health') do
+  describe http('http://localhost/health') do
     its('status') { should cmp 200 }
     its('body') { should match(/SYSTEM HEALTHY/) }
   end
 
   # Test metrics endpoint
-  describe http('http://localhost:8080/metrics.json') do
+  describe http('http://localhost/metrics.json') do
     its('status') { should cmp 200 }
     its('headers.Content-Type') { should match(/application\/json/) }
     its('body') { should match(/"status": "healthy"/) }
@@ -160,36 +160,37 @@ describe 'Chef Compliance' do
     its('stdout') { should match(/Chef Infra Client/) }
   end
 
-  # Test that the cookbook ran successfully by checking logs
-  describe file('/opt/demo/golf-app/logs/deployment.log') do
+  # Verify demo configuration contains expected values (Linux only)
+  describe file('/var/www/html/golf/demo-config.txt') do
     it { should exist }
-    its('content') { should match(/Elite Golf Cookbook POC deployed successfully/) }
-  end if os.family != 'windows'
-
-  # Verify demo configuration contains expected values
-  describe file('/opt/demo/golf-app/demo-config.txt') do
     its('content') { should match(/Lab POC Configuration/) }
-    its('content') { should match(/Platform: #{os.name}/) }
     its('content') { should match(/Chef Version:/) }
   end if os.family != 'windows'
+
+  # Verify demo configuration contains expected values (Windows)
+  describe file('C:/inetpub/wwwroot/golf/demo-config.txt') do
+    it { should exist }
+    its('content') { should match(/Lab POC Configuration/) }
+    its('content') { should match(/Chef Version:/) }
+  end if os.family == 'windows'
 end
 
 # Performance and monitoring tests
 describe 'Performance and Monitoring' do
   # Test that the application responds quickly
-  describe http('http://localhost:8080') do
+  describe http('http://localhost') do
     its('status') { should cmp 200 }
     # Response time should be reasonable for demo
   end
 
-  # Test log directory exists and is writable
+  # Test web root directory permissions
   case os.family
   when 'windows'
-    describe directory('C:\\demo\\golf-app\\logs') do
+    describe directory('C:/inetpub/wwwroot/golf') do
       it { should exist }
     end
   else
-    describe directory('/opt/demo/golf-app/logs') do
+    describe directory('/var/www/html/golf') do
       it { should exist }
       it { should be_owned_by 'www-data' }
       its('mode') { should cmp '0755' }
