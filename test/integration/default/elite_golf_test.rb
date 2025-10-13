@@ -70,21 +70,21 @@ describe 'Web Server Configuration' do
     end
 
   else
-    # Test web server is installed and running (Apache/httpd)
-    describe.one do
+    # Test web server is installed (Apache/httpd based on platform)
+    if os.debian?
       describe package('apache2') do
         it { should be_installed }
       end
-      describe package('httpd') do
-        it { should be_installed }
-      end
-    end
 
-    describe.one do
       describe service('apache2') do
         it { should be_enabled }
         it { should be_running }
       end
+    else
+      describe package('httpd') do
+        it { should be_installed }
+      end
+
       describe service('httpd') do
         it { should be_enabled }
         it { should be_running }
