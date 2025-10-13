@@ -25,74 +25,7 @@ cookbook_file 'C:/inetpub/wwwroot/golf/index.html' do
   action :create
 end
 
-# RELIABLE WEBSITE RECREATION - Always apply the proven fix method
-powershell_script 'reliable_website_recreation' do
-  code <<-EOH
-    Write-Host "=== RELIABLE WEBSITE RECREATION ==="
-    Write-Host "Applying the proven method that always works..."
-    
-    $siteName = "Elite Golf Site"
-    $port = 80
-    $physicalPath = "C:\inetpub\wwwroot\golf"
-    
-    # STEP 0: Verify files exist
-    Write-Host "STEP 0: Verifying files exist..."
-    if (Test-Path "$physicalPath\index.html") {
-      $fileSize = (Get-Item "$physicalPath\index.html").Length
-      Write-Host "index.html exists: $fileSize bytes"
-    } else {
-      Write-Host "ERROR: index.html not found at $physicalPath"
-    }
-    
-    # STEP 1: Clean removal (the exact method that works)
-    Write-Host "STEP 1: Removing any existing websites that might conflict..."
-    
-    # Remove Default Web Site
-    $defaultSite = Get-Website -Name "Default Web Site" -ErrorAction SilentlyContinue
-    if ($defaultSite) {
-      Write-Host "Removing Default Web Site..."
-      Remove-Website -Name "Default Web Site" -ErrorAction SilentlyContinue
-    }
-    
-    # Remove Elite Golf Site (always, for clean state)
-    $existingSite = Get-Website -Name $siteName -ErrorAction SilentlyContinue
-    if ($existingSite) {
-      Write-Host "Removing existing $siteName..."
-      Remove-Website -Name $siteName -ErrorAction SilentlyContinue
-    }
-    
-    Start-Sleep -Seconds 2
-    
-    # STEP 2: Create with explicit settings (the exact method that works)
-    Write-Host "STEP 2: Creating $siteName with proven configuration..."
-    New-Website -Name $siteName -Port $port -PhysicalPath $physicalPath -ApplicationPool "DefaultAppPool"
-    
-    # STEP 3: Start the website (the exact method that works)
-    Write-Host "STEP 3: Starting $siteName..."
-    Start-Website -Name $siteName -ErrorAction SilentlyContinue
-    Start-Sleep -Seconds 3
-    
-    # STEP 4: Verify it's working (immediate test)
-    Write-Host "STEP 4: Verifying website is working..."
-    try {
-      $testResponse = Invoke-WebRequest -Uri "http://localhost:$port" -UseBasicParsing -TimeoutSec 10
-      if ($testResponse.StatusCode -eq 200 -and $testResponse.Content -match "Elite Golf Club") {
-        Write-Host "SUCCESS: Website is working! Status: $($testResponse.StatusCode), Content: $($testResponse.Content.Length) bytes"
-      } else {
-        Write-Host "WARNING: Unexpected response - Status: $($testResponse.StatusCode)"
-      }
-    } catch {
-      Write-Host "VERIFICATION FAILED: $($_.Exception.Message)"
-      Write-Host "Files check:"
-      Get-ChildItem $physicalPath -ErrorAction SilentlyContinue | Format-Table Name, Length
-      Write-Host "Manual check may be needed: http://localhost:$port"
-    }
-    
-    Write-Host "=== RELIABLE RECREATION COMPLETE ==="
-  EOH
-  action :run
-  ignore_failure false
-end
+# Website creation moved to end of recipe after all IIS setup and file deployment
 
 # Install IIS features using PowerShell with correct Windows 10 feature names
 powershell_script 'enable_iis_features' do
@@ -579,7 +512,79 @@ powershell_script 'robust_post_deployment_verification' do
   ignore_failure true
 end
 
+# FINAL STEP: RELIABLE WEBSITE RECREATION - Apply proven fix after all setup is complete
+powershell_script 'final_website_creation' do
+  code <<-EOH
+    Write-Host "=== FINAL WEBSITE CREATION ==="
+    Write-Host "Applying the proven method after all files are deployed..."
+    
+    $siteName = "Elite Golf Site"
+    $port = 80
+    $physicalPath = "C:\\inetpub\\wwwroot\\golf"
+    
+    # STEP 0: Verify files exist
+    Write-Host "STEP 0: Verifying files exist..."
+    if (Test-Path "$physicalPath\\index.html") {
+      $fileSize = (Get-Item "$physicalPath\\index.html").Length
+      Write-Host "SUCCESS: index.html exists: $fileSize bytes"
+    } else {
+      Write-Host "ERROR: index.html not found at $physicalPath"
+      Write-Host "Directory contents:"
+      Get-ChildItem $physicalPath -ErrorAction SilentlyContinue | Format-Table Name, Length
+      exit 1
+    }
+    
+    # STEP 1: Clean removal (the exact method that works)
+    Write-Host "STEP 1: Removing any existing websites that might conflict..."
+    
+    # Remove Default Web Site
+    $defaultSite = Get-Website -Name "Default Web Site" -ErrorAction SilentlyContinue
+    if ($defaultSite) {
+      Write-Host "Removing Default Web Site..."
+      Remove-Website -Name "Default Web Site" -ErrorAction SilentlyContinue
+    }
+    
+    # Remove Elite Golf Site (always, for clean state)
+    $existingSite = Get-Website -Name $siteName -ErrorAction SilentlyContinue
+    if ($existingSite) {
+      Write-Host "Removing existing $siteName..."
+      Remove-Website -Name $siteName -ErrorAction SilentlyContinue
+    }
+    
+    Start-Sleep -Seconds 2
+    
+    # STEP 2: Create with explicit settings (the exact method that works)
+    Write-Host "STEP 2: Creating $siteName with proven configuration..."
+    New-Website -Name $siteName -Port $port -PhysicalPath $physicalPath -ApplicationPool "DefaultAppPool"
+    
+    # STEP 3: Start the website (the exact method that works)
+    Write-Host "STEP 3: Starting $siteName..."
+    Start-Website -Name $siteName -ErrorAction SilentlyContinue
+    Start-Sleep -Seconds 3
+    
+    # STEP 4: Verify it's working (immediate test)
+    Write-Host "STEP 4: Verifying website is working..."
+    try {
+      $testResponse = Invoke-WebRequest -Uri "http://localhost:$port" -UseBasicParsing -TimeoutSec 10
+      if ($testResponse.StatusCode -eq 200 -and $testResponse.Content -match "Elite Golf Club") {
+        Write-Host "SUCCESS: Website is working! Status: $($testResponse.StatusCode), Content: $($testResponse.Content.Length) bytes"
+      } else {
+        Write-Host "WARNING: Unexpected response - Status: $($testResponse.StatusCode)"
+      }
+    } catch {
+      Write-Host "VERIFICATION FAILED: $($_.Exception.Message)"
+      Write-Host "Files check:"
+      Get-ChildItem $physicalPath -ErrorAction SilentlyContinue | Format-Table Name, Length
+      Write-Host "Manual check may be needed: http://localhost:$port"
+    }
+    
+    Write-Host "=== FINAL WEBSITE CREATION COMPLETE ==="
+  EOH
+  action :run
+  ignore_failure false
+end
+
 log 'IIS configuration completed' do
-  message "IIS configured for Elite Golf application on port #{node['golf_app']['port']} with robust verification"
+  message "IIS configured for Elite Golf application on port 80 with final website creation"
   level :info
 end
