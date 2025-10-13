@@ -44,8 +44,12 @@ powershell_script 'enable_iis_features' do
     foreach ($feature in $features) {
       try {
         Write-Host "Enabling feature: $feature"
-        Enable-WindowsOptionalFeature -Online -FeatureName $feature -All -NoRestart -ErrorAction SilentlyContinue
-        Write-Host "Successfully enabled: $feature"
+        $result = Enable-WindowsOptionalFeature -Online -FeatureName $feature -All -NoRestart -ErrorAction Stop
+        if ($result.RestartNeeded) {
+          Write-Host "Feature $feature enabled successfully (restart may be needed)"
+        } else {
+          Write-Host "Feature $feature enabled successfully"
+        }
       } catch {
         Write-Host "Feature $feature may not be available or already enabled: $($_.Exception.Message)"
       }
@@ -53,7 +57,7 @@ powershell_script 'enable_iis_features' do
     
     Write-Host "IIS features installation completed"
     Write-Host "Waiting for IIS services to be ready..."
-    Start-Sleep -Seconds 5
+    Start-Sleep -Seconds 10
   EOH
   action :run
   not_if 'Get-WindowsOptionalFeature -Online -FeatureName IIS-WebServer | Where-Object {$_.State -eq "Enabled"}'
@@ -72,11 +76,11 @@ powershell_script 'wait_for_iis_components' do
     do {
       $iisReady = $true
       
-      # Check if IIS Management Service exists (this indicates IIS is properly installed)
-      $iisAdmin = Get-Service -Name "IISADMIN" -ErrorAction SilentlyContinue
-      if (-not $iisAdmin) {
+      # Check if W3SVC service exists (this indicates IIS is properly installed)
+      $w3svc = Get-Service -Name "W3SVC" -ErrorAction SilentlyContinue
+      if (-not $w3svc) {
         $iisReady = $false
-        Write-Host "Waiting for IISADMIN service... ($elapsedTime seconds elapsed)"
+        Write-Host "Waiting for W3SVC service... ($elapsedTime seconds elapsed)"
       }
       
       # Check if appcmd.exe exists
@@ -97,13 +101,19 @@ powershell_script 'wait_for_iis_components' do
       
       # Try to start IIS services if they exist but aren't running
       try {
-        $services = @("IISADMIN", "W3SVC", "WAS")
+        $services = @("W3SVC", "WAS")  # IISADMIN doesn't exist in modern IIS
         foreach ($serviceName in $services) {
           $service = Get-Service -Name $serviceName -ErrorAction SilentlyContinue
-          if ($service -and $service.Status -ne "Running") {
-            Write-Host "Starting $serviceName service..."
-            Start-Service -Name $serviceName -ErrorAction SilentlyContinue
-            Start-Sleep -Seconds 2
+          if ($service) {
+            if ($service.Status -ne "Running") {
+              Write-Host "Starting $serviceName service..."
+              Start-Service -Name $serviceName -ErrorAction SilentlyContinue
+              Start-Sleep -Seconds 3
+            } else {
+              Write-Host "$serviceName service is already running"
+            }
+          } else {
+            Write-Host "$serviceName service not found - may not be installed yet"
           }
         }
       } catch {
