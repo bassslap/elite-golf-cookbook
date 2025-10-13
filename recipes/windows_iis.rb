@@ -340,6 +340,47 @@ powershell_script 'restart_iis_services' do
   action :run
 end
 
+# Ensure Elite Golf Site is the primary site on port 80
+powershell_script 'configure_primary_website' do
+  code <<-EOH
+    Import-Module WebAdministration -ErrorAction SilentlyContinue
+    
+    try {
+      Write-Host "Configuring Elite Golf Site as primary website..."
+      
+      # Stop Default Web Site if it exists and is running
+      $defaultSite = Get-Website -Name "Default Web Site" -ErrorAction SilentlyContinue
+      if ($defaultSite -and $defaultSite.State -eq "Started") {
+        Write-Host "Stopping Default Web Site to avoid port conflicts..."
+        Stop-Website -Name "Default Web Site" -ErrorAction SilentlyContinue
+      }
+      
+      # Ensure Elite Golf Site is started and configured properly
+      $golfSite = Get-Website -Name "Elite Golf Site" -ErrorAction SilentlyContinue
+      if ($golfSite) {
+        if ($golfSite.State -ne "Started") {
+          Write-Host "Starting Elite Golf Site..."
+          Start-Website -Name "Elite Golf Site" -ErrorAction SilentlyContinue
+        }
+        Write-Host "Elite Golf Site status: $($golfSite.State)"
+        Write-Host "Elite Golf Site path: $($golfSite.PhysicalPath)"
+        Write-Host "Elite Golf Site bindings: $($golfSite.Bindings.Collection.bindingInformation)"
+      } else {
+        Write-Host "Warning: Elite Golf Site not found - this should not happen"
+      }
+      
+      # List all websites for debugging
+      Write-Host "Current website configuration:"
+      Get-Website | Format-Table Name, State, PhysicalPath, @{Name="Port";Expression={($_.Bindings.Collection.bindingInformation -split ':')[1]}} -AutoSize
+      
+    } catch {
+      Write-Host "Error configuring websites: $($_.Exception.Message)"
+    }
+  EOH
+  action :run
+  ignore_failure true
+end
+
 # Verify IIS is responding (simple check without WebAdministration module)
 powershell_script 'verify_iis_response' do
   code <<-EOH
