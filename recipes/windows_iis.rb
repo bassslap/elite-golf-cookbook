@@ -222,7 +222,15 @@ powershell_script 'create_golf_app_pool_fallback' do
   ignore_failure true
 end
 
-# Remove existing site if it exists (appcmd method)
+# PERMANENT FIX: Remove Default Web Site completely (appcmd method)
+execute 'remove_default_website' do
+  command %Q{C:\\Windows\\System32\\inetsrv\\appcmd.exe delete site "Default Web Site"}
+  only_if %Q{C:\\Windows\\System32\\inetsrv\\appcmd.exe list site "Default Web Site" >nul 2>&1}
+  only_if { ::File.exist?('C:\\Windows\\System32\\inetsrv\\appcmd.exe') }
+  ignore_failure true
+end
+
+# Remove existing golf site if it exists (appcmd method)
 execute 'remove_existing_golf_site' do
   command %Q{C:\\Windows\\System32\\inetsrv\\appcmd.exe delete site "#{node['golf_app']['site_name']}"}
   only_if %Q{C:\\Windows\\System32\\inetsrv\\appcmd.exe list site "#{node['golf_app']['site_name']}" >nul 2>&1}
@@ -249,15 +257,23 @@ powershell_script 'create_golf_website_fallback' do
       $physicalPath = "#{node['golf_app']['web_root']}"
       $appPoolName = "#{node['golf_app']['app_pool_name']}"
       
-      # Remove existing site if it exists
+      # PERMANENT FIX: Remove Default Web Site completely
+      $defaultSite = Get-Website -Name "Default Web Site" -ErrorAction SilentlyContinue
+      if ($defaultSite) {
+        Write-Host "Permanently removing Default Web Site to prevent conflicts..."
+        Remove-Website -Name "Default Web Site" -ErrorAction SilentlyContinue
+        Write-Host "Default Web Site permanently removed"
+      }
+      
+      # Remove existing Elite Golf site if it exists  
       if (Get-Website -Name $siteName -ErrorAction SilentlyContinue) {
         Remove-Website -Name $siteName -ErrorAction SilentlyContinue
         Write-Host "Removed existing website: $siteName"
       }
       
-      # Create new website
+      # Create Elite Golf Site as the primary website (will get ID 1)
       New-Website -Name $siteName -Port $port -PhysicalPath $physicalPath -ApplicationPool $appPoolName -ErrorAction Stop
-      Write-Host "Website $siteName created successfully on port $port via PowerShell"
+      Write-Host "Website $siteName created successfully on port $port via PowerShell as primary site"
       
       # Start the website
       Start-Website -Name $siteName -ErrorAction SilentlyContinue
@@ -348,11 +364,12 @@ powershell_script 'configure_primary_website' do
     try {
       Write-Host "Configuring Elite Golf Site as primary website..."
       
-      # Stop Default Web Site if it exists and is running
+      # PERMANENT FIX: Remove Default Web Site if it still exists
       $defaultSite = Get-Website -Name "Default Web Site" -ErrorAction SilentlyContinue
-      if ($defaultSite -and $defaultSite.State -eq "Started") {
-        Write-Host "Stopping Default Web Site to avoid port conflicts..."
-        Stop-Website -Name "Default Web Site" -ErrorAction SilentlyContinue
+      if ($defaultSite) {
+        Write-Host "Permanently removing Default Web Site to prevent future conflicts..."
+        Remove-Website -Name "Default Web Site" -ErrorAction SilentlyContinue
+        Write-Host "Default Web Site permanently removed"
       }
       
       # Ensure Elite Golf Site is started and configured properly
@@ -369,9 +386,27 @@ powershell_script 'configure_primary_website' do
         Write-Host "Warning: Elite Golf Site not found - this should not happen"
       }
       
+      # Validate that Elite Golf Site is the ONLY site and is primary
+      $allSites = Get-Website
+      $golfSiteOnly = $allSites | Where-Object {$_.Name -eq "Elite Golf Site"}
+      $defaultSiteExists = $allSites | Where-Object {$_.Name -eq "Default Web Site"}
+      
+      if ($defaultSiteExists) {
+        Write-Host "ERROR: Default Web Site still exists - this should not happen!"
+      } else {
+        Write-Host "SUCCESS: Default Web Site is permanently removed"
+      }
+      
+      if ($golfSiteOnly -and $golfSiteOnly.State -eq "Started") {
+        Write-Host "SUCCESS: Elite Golf Site is running as the primary website"
+        Write-Host "Site ID: $($golfSiteOnly.ID) (should be 1 for primary position)"
+      } else {
+        Write-Host "WARNING: Elite Golf Site configuration issue"
+      }
+      
       # List all websites for debugging
-      Write-Host "Current website configuration:"
-      Get-Website | Format-Table Name, State, PhysicalPath, @{Name="Port";Expression={($_.Bindings.Collection.bindingInformation -split ':')[1]}} -AutoSize
+      Write-Host "Final website configuration:"
+      Get-Website | Format-Table Name, ID, State, PhysicalPath, @{Name="Port";Expression={($_.Bindings.Collection.bindingInformation -split ':')[1]}} -AutoSize
       
     } catch {
       Write-Host "Error configuring websites: $($_.Exception.Message)"
