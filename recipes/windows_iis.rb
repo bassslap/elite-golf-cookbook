@@ -11,6 +11,20 @@ rescue LoadError
   Chef::Log.warn("Win32::Service not available - service checks will be skipped")
 end
 
+# ENSURE DIRECTORY AND FILES EXIST FIRST
+directory 'C:/inetpub/wwwroot/golf' do
+  recursive true
+  action :create
+end
+
+# ENSURE INDEX.HTML IS DEPLOYED
+cookbook_file 'C:/inetpub/wwwroot/golf/index.html' do
+  source 'index.html'
+  rights :read, 'IIS_IUSRS'
+  rights :read, 'IUSR'
+  action :create
+end
+
 # RELIABLE WEBSITE RECREATION - Always apply the proven fix method
 powershell_script 'reliable_website_recreation' do
   code <<-EOH
@@ -18,8 +32,17 @@ powershell_script 'reliable_website_recreation' do
     Write-Host "Applying the proven method that always works..."
     
     $siteName = "Elite Golf Site"
-    $port = #{node['golf_app']['port']}
-    $physicalPath = "#{node['golf_app']['web_root']}"
+    $port = 80
+    $physicalPath = "C:\inetpub\wwwroot\golf"
+    
+    # STEP 0: Verify files exist
+    Write-Host "STEP 0: Verifying files exist..."
+    if (Test-Path "$physicalPath\index.html") {
+      $fileSize = (Get-Item "$physicalPath\index.html").Length
+      Write-Host "index.html exists: $fileSize bytes"
+    } else {
+      Write-Host "ERROR: index.html not found at $physicalPath"
+    }
     
     # STEP 1: Clean removal (the exact method that works)
     Write-Host "STEP 1: Removing any existing websites that might conflict..."
@@ -60,6 +83,8 @@ powershell_script 'reliable_website_recreation' do
       }
     } catch {
       Write-Host "VERIFICATION FAILED: $($_.Exception.Message)"
+      Write-Host "Files check:"
+      Get-ChildItem $physicalPath -ErrorAction SilentlyContinue | Format-Table Name, Length
       Write-Host "Manual check may be needed: http://localhost:$port"
     }
     
