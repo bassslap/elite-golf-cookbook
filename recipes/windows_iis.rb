@@ -47,46 +47,27 @@ powershell_script 'enable_iis_features' do
   not_if 'Get-WindowsOptionalFeature -Online -FeatureName IIS-WebServer | Where-Object {$_.State -eq "Enabled"}'
 end
 
-# Create application pool using PowerShell
-powershell_script 'create_golf_app_pool' do
-  code <<-EOH
-    Import-Module WebAdministration
-    if (!(Get-IISAppPool -Name "#{node['golf_app']['app_pool_name']}" -ErrorAction SilentlyContinue)) {
-      New-WebAppPool -Name "#{node['golf_app']['app_pool_name']}"
-      Set-ItemProperty -Path "IIS:\\AppPools\\#{node['golf_app']['app_pool_name']}" -Name processModel.identityType -Value ApplicationPoolIdentity
-      Set-ItemProperty -Path "IIS:\\AppPools\\#{node['golf_app']['app_pool_name']}" -Name managedRuntimeVersion -Value "v4.0"
-      Write-Host "Application pool #{node['golf_app']['app_pool_name']} created successfully"
-    } else {
-      Write-Host "Application pool #{node['golf_app']['app_pool_name']} already exists"
-    }
-  EOH
-  action :run
+# Wait for IIS to be ready and create application pool using appcmd
+execute 'create_golf_app_pool' do
+  command %Q{%windir%\\system32\\inetsrv\\appcmd add apppool /name:"#{node['golf_app']['app_pool_name']}" /managedRuntimeVersion:"v4.0" /processModel.identityType:ApplicationPoolIdentity}
+  not_if %Q{%windir%\\system32\\inetsrv\\appcmd list apppool "#{node['golf_app']['app_pool_name']}"}
+  retries 3
+  retry_delay 10
 end
 
-# Create IIS site using PowerShell
-powershell_script 'create_golf_website' do
-  code <<-EOH
-    Import-Module WebAdministration
-    $siteName = "#{node['golf_app']['site_name']}"
-    $port = #{node['golf_app']['port']}
-    $physicalPath = "#{node['golf_app']['web_root']}"
-    $appPoolName = "#{node['golf_app']['app_pool_name']}"
-    
-    # Remove existing site if it exists
-    if (Get-Website -Name $siteName -ErrorAction SilentlyContinue) {
-      Remove-Website -Name $siteName
-      Write-Host "Removed existing website: $siteName"
-    }
-    
-    # Create new website
-    New-Website -Name $siteName -Port $port -PhysicalPath $physicalPath -ApplicationPool $appPoolName
-    Write-Host "Website $siteName created successfully on port $port"
-    
-    # Start the website
-    Start-Website -Name $siteName
-    Write-Host "Website $siteName started"
-  EOH
-  action :run
+# Remove existing site if it exists
+execute 'remove_existing_golf_site' do
+  command %Q{%windir%\\system32\\inetsrv\\appcmd delete site "#{node['golf_app']['site_name']}"}
+  only_if %Q{%windir%\\system32\\inetsrv\\appcmd list site "#{node['golf_app']['site_name']}"}
+  ignore_failure true
+end
+
+# Create IIS site using appcmd
+execute 'create_golf_website' do
+  command %Q{%windir%\\system32\\inetsrv\\appcmd add site /name:"#{node['golf_app']['site_name']}" /physicalPath:"#{node['golf_app']['web_root']}" /bindings:http/*:#{node['golf_app']['port']}: /applicationDefaults.applicationPool:"#{node['golf_app']['app_pool_name']}"}
+  not_if %Q{%windir%\\system32\\inetsrv\\appcmd list site "#{node['golf_app']['site_name']}"}
+  retries 3
+  retry_delay 5
   notifies :restart, 'service[W3SVC]', :delayed
 end
 
@@ -101,29 +82,19 @@ end
 
 # Configure SSL if enabled
 if node['golf_app']['enable_ssl']
-  powershell_script 'create_golf_ssl_website' do
-    code <<-EOH
-      Import-Module WebAdministration
-      $siteName = "#{node['golf_app']['site_name']}-SSL"
-      $port = #{node['golf_app']['ssl_port']}
-      $physicalPath = "#{node['golf_app']['web_root']}"
-      $appPoolName = "#{node['golf_app']['app_pool_name']}"
-      
-      # Remove existing SSL site if it exists
-      if (Get-Website -Name $siteName -ErrorAction SilentlyContinue) {
-        Remove-Website -Name $siteName
-        Write-Host "Removed existing SSL website: $siteName"
-      }
-      
-      # Create new SSL website
-      New-Website -Name $siteName -Port $port -PhysicalPath $physicalPath -ApplicationPool $appPoolName -Ssl
-      Write-Host "SSL Website $siteName created successfully on port $port"
-      
-      # Start the SSL website
-      Start-Website -Name $siteName
-      Write-Host "SSL Website $siteName started"
-    EOH
-    action :run
+  # Remove existing SSL site if it exists
+  execute 'remove_existing_golf_ssl_site' do
+    command %Q{%windir%\\system32\\inetsrv\\appcmd delete site "#{node['golf_app']['site_name']}-SSL"}
+    only_if %Q{%windir%\\system32\\inetsrv\\appcmd list site "#{node['golf_app']['site_name']}-SSL"}
+    ignore_failure true
+  end
+  
+  # Create SSL site using appcmd
+  execute 'create_golf_ssl_website' do
+    command %Q{%windir%\\system32\\inetsrv\\appcmd add site /name:"#{node['golf_app']['site_name']}-SSL" /physicalPath:"#{node['golf_app']['web_root']}" /bindings:https/*:#{node['golf_app']['ssl_port']}: /applicationDefaults.applicationPool:"#{node['golf_app']['app_pool_name']}"}
+    not_if %Q{%windir%\\system32\\inetsrv\\appcmd list site "#{node['golf_app']['site_name']}-SSL"}
+    retries 3
+    retry_delay 5
     notifies :restart, 'service[W3SVC]', :delayed
   end
 end
@@ -133,21 +104,24 @@ service 'W3SVC' do
   action [:enable, :start]
 end
 
-# Verify IIS is responding
+# Verify IIS is responding (simple check without WebAdministration module)
 powershell_script 'verify_iis_response' do
   code <<-EOH
-    Start-Sleep -Seconds 5
+    Start-Sleep -Seconds 10
     try {
-      $response = Invoke-WebRequest -Uri "http://localhost:#{node['golf_app']['port']}" -UseBasicParsing -TimeoutSec 10
-      if ($response.StatusCode -eq 200) {
+      # Simple HTTP check using .NET WebClient
+      $webClient = New-Object System.Net.WebClient
+      $response = $webClient.DownloadString("http://localhost:#{node['golf_app']['port']}")
+      if ($response -match "Elite Golf Club") {
         Write-Host "SUCCESS: Elite Golf application is responding on port #{node['golf_app']['port']}"
         Write-Host "Application URL: http://localhost:#{node['golf_app']['port']}"
       } else {
-        Write-Host "WARNING: Unexpected status code: $($response.StatusCode)"
+        Write-Host "WARNING: Unexpected response content"
       }
+      $webClient.Dispose()
     } catch {
-      Write-Host "WARNING: Could not verify website response - this may be normal during initial deployment"
-      Write-Host "Error: $($_.Exception.Message)"
+      Write-Host "INFO: Website may still be starting up - this is normal during initial deployment"
+      Write-Host "Manual check: http://localhost:#{node['golf_app']['port']}"
     }
   EOH
   action :run
