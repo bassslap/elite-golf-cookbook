@@ -271,13 +271,55 @@ powershell_script 'create_golf_website_fallback' do
         Write-Host "Removed existing website: $siteName"
       }
       
-      # Create Elite Golf Site as the primary website (will get ID 1)
-      New-Website -Name $siteName -Port $port -PhysicalPath $physicalPath -ApplicationPool $appPoolName -ErrorAction Stop
-      Write-Host "Website $siteName created successfully on port $port via PowerShell as primary site"
+        # Create and configure the website with complete recreation for reliability
+  powershell_script 'create_elite_golf_site' do
+    code <<-EOH
+      $siteName = "#{site_name}"
+      $sitePath = "#{site_path}"
+      $port = #{port}
+      
+      Write-Host "Setting up Elite Golf Site with reliable recreation method..."
+      
+      # Remove existing website if it exists to ensure clean configuration
+      $existingSite = Get-Website -Name $siteName -ErrorAction SilentlyContinue
+      if ($existingSite) {
+        Write-Host "Removing existing website $siteName for clean recreation..."
+        Remove-Website -Name $siteName -ErrorAction SilentlyContinue
+        Start-Sleep -Seconds 2
+      }
+      
+      # Create website with explicit settings for reliability
+      Write-Host "Creating new website $siteName with explicit configuration..."
+      New-Website -Name $siteName -Port $port -PhysicalPath $sitePath -ApplicationPool "DefaultAppPool"
       
       # Start the website
       Start-Website -Name $siteName -ErrorAction SilentlyContinue
-      Write-Host "Website $siteName started"
+      Start-Sleep -Seconds 2
+      
+      # Verify the website is running and accessible
+      $site = Get-Website -Name $siteName
+      Write-Host "Website Status: $($site.State)"
+      Write-Host "Physical Path: $($site.PhysicalPath)"
+      Write-Host "Bindings: $($site.Bindings.Collection | ForEach-Object { $_.bindingInformation })"
+      
+      # Test website accessibility
+      try {
+        $response = Invoke-WebRequest -Uri "http://localhost:$port" -UseBasicParsing -TimeoutSec 10
+        Write-Host "Website test successful - Status: $($response.StatusCode)"
+      } catch {
+        Write-Host "Website test failed: $($_.Exception.Message)"
+        # Attempt one retry after brief pause
+        Start-Sleep -Seconds 3
+        try {
+          $retryResponse = Invoke-WebRequest -Uri "http://localhost:$port" -UseBasicParsing -TimeoutSec 10
+          Write-Host "Website retry test successful - Status: $($retryResponse.StatusCode)"
+        } catch {
+          Write-Host "Website retry test also failed: $($_.Exception.Message)"
+        }
+      }
+    EOH
+    not_if { node['os'] != 'windows' }
+  end
     } catch {
       Write-Host "PowerShell method failed: $($_.Exception.Message)"
       Write-Host "Will attempt basic IIS setup..."

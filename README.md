@@ -542,12 +542,101 @@ Apache License 2.0
 4. Test on both Windows and Linux platforms
 5. Submit a pull request
 
+## Troubleshooting
+
+### Windows IIS Issues
+
+#### Website Returns 404 Errors
+If the website shows 404 errors even though files exist:
+
+1. **Complete IIS Site Recreation** (Permanent Fix):
+   ```powershell
+   # Remove existing site
+   Remove-Website -Name "Elite Golf Site" -ErrorAction SilentlyContinue
+   
+   # Recreate with explicit settings
+   New-Website -Name "Elite Golf Site" -Port 80 -PhysicalPath "C:\inetpub\wwwroot\golf" -ApplicationPool "DefaultAppPool"
+   
+   # Start and test
+   Start-Website -Name "Elite Golf Site"
+   Invoke-WebRequest -Uri http://localhost -UseBasicParsing
+   ```
+
+2. **Check Website Configuration**:
+   ```powershell
+   Get-Website "Elite Golf Site" | Format-List *
+   Get-ChildItem "C:\inetpub\wwwroot\golf"
+   ```
+
+#### Web.config Errors (HTTP 500.19)
+If you encounter duplicate mimeMap errors:
+- The cookbook automatically handles this by using a clean web.config template
+- Avoid manual web.config modifications that add duplicate MIME types
+
+#### IIS Feature Installation Issues
+For Windows 10/11 compatibility:
+- The cookbook uses `Enable-WindowsOptionalFeature` instead of deprecated methods
+- Requires PowerShell with administrative privileges
+- May require system restart after feature installation
+
+### Linux Apache Issues
+
+#### Port Binding Conflicts
+```bash
+# Check what's using port 80
+sudo netstat -tulpn | grep :80
+
+# Stop conflicting services
+sudo systemctl stop nginx  # if nginx is running
+sudo systemctl disable nginx
+```
+
+#### Permission Issues
+```bash
+# Fix web directory permissions
+sudo chown -R www-data:www-data /var/www/html/golf
+sudo chmod -R 755 /var/www/html/golf
+```
+
+### General Chef Issues
+
+#### Recipe Run Failures
+1. **Check Chef Client Version**: Ensure Chef Client 17+ is installed
+2. **Verify Node Attributes**: Run `chef-client --why-run` for dry run
+3. **Platform Detection**: Verify `node['platform']` is correctly detected
+
+#### Network Connectivity
+```bash
+# Test Chef server connection
+knife ssl check
+
+# Verify cookbook upload
+knife cookbook show elite-golf-cookbook
+```
+
+### Deployment Verification
+
+After successful deployment, verify:
+
+1. **Windows**:
+   ```powershell
+   Invoke-WebRequest -Uri http://localhost -UseBasicParsing
+   Get-Website | Where-Object {$_.Name -eq "Elite Golf Site"}
+   ```
+
+2. **Linux**:
+   ```bash
+   curl http://localhost
+   systemctl status apache2
+   ```
+
 ## Support
 
 For issues and questions:
 - Check the troubleshooting section above
 - Review Chef logs for detailed error information
 - Ensure all prerequisites are met for your platform
+- For persistent IIS issues, use the complete site recreation method
 
 ---
 
