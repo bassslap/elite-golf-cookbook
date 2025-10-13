@@ -17,12 +17,19 @@ directory 'C:/inetpub/wwwroot/golf' do
   action :create
 end
 
-# ENSURE INDEX.HTML IS DEPLOYED
-cookbook_file 'C:/inetpub/wwwroot/golf/index.html' do
-  source 'index.html'
+# ENSURE INDEX.HTML IS DEPLOYED WITH SYSTEM INFORMATION
+template 'C:/inetpub/wwwroot/golf/index.html' do
+  source 'index.html.erb'
   rights :read, 'IIS_IUSRS'
   rights :read, 'IUSR'
   action :create
+  variables(
+    hostname: node['hostname'],
+    platform: node['platform'],
+    platform_version: node['platform_version'],
+    architecture: node['kernel']['machine'],
+    chef_version: Chef::VERSION
+  )
 end
 
 # Website creation moved to end of recipe after all IIS setup and file deployment

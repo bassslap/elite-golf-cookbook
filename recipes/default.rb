@@ -19,9 +19,9 @@ directory node['golf_app']['web_root'] do
   end
 end
 
-# Deploy the web application files
-cookbook_file "#{node['golf_app']['web_root']}/index.html" do
-  source 'index.html'
+# Deploy the web application files with dynamic system information
+template "#{node['golf_app']['web_root']}/index.html" do
+  source 'index.html.erb'
   case node['platform']
   when 'windows'
     rights :read, 'IIS_IUSRS'
@@ -32,6 +32,13 @@ cookbook_file "#{node['golf_app']['web_root']}/index.html" do
     mode '0644'
   end
   action :create
+  variables(
+    hostname: node['hostname'],
+    platform: node['platform'],
+    platform_version: node['platform_version'],
+    architecture: node['kernel']['machine'],
+    chef_version: Chef::VERSION
+  )
 end
 
 # Platform-specific web server configuration

@@ -1,0 +1,257 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Elite Golf Club</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Georgia', serif;
+            background: linear-gradient(135deg, #2e7d32, #66bb6a);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            color: #333;
+        }
+
+        .header {
+            background: rgba(255, 255, 255, 0.95);
+            width: 100%;
+            text-align: center;
+            padding: 20px 0;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+        }
+
+        .header h1 {
+            color: #1b5e20;
+            font-size: 2.5em;
+            margin-bottom: 10px;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.1);
+        }
+
+        .header p {
+            color: #4caf50;
+            font-size: 1.2em;
+            font-style: italic;
+        }
+
+        .system-info {
+            background: rgba(46, 125, 50, 0.9);
+            color: white;
+            padding: 15px;
+            margin: 10px 0;
+            border-radius: 10px;
+            display: inline-block;
+            font-family: 'Courier New', monospace;
+            font-size: 1em;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+        }
+
+        .system-info .label {
+            font-weight: bold;
+            color: #81c784;
+        }
+
+        .main-content {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 40px 20px;
+            max-width: 800px;
+            width: 100%;
+        }
+
+        .golf-club-container {
+            background: rgba(255, 255, 255, 0.9);
+            border-radius: 20px;
+            padding: 40px;
+            margin: 20px 0;
+            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.2);
+            text-align: center;
+        }
+
+        .golf-club-svg {
+            width: 200px;
+            height: 300px;
+            margin: 20px 0;
+        }
+
+        .welcome-text {
+            color: #1b5e20;
+            font-size: 1.5em;
+            margin: 20px 0;
+            line-height: 1.6;
+        }
+
+        .features {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+            margin-top: 30px;
+            width: 100%;
+        }
+
+        .feature-card {
+            background: rgba(255, 255, 255, 0.9);
+            border-radius: 15px;
+            padding: 25px;
+            text-align: center;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+            transition: transform 0.3s ease;
+        }
+
+        .feature-card:hover {
+            transform: translateY(-5px);
+        }
+
+        .feature-card h3 {
+            color: #2e7d32;
+            font-size: 1.3em;
+            margin-bottom: 10px;
+        }
+
+        .feature-card p {
+            color: #555;
+            line-height: 1.5;
+        }
+
+        .footer {
+            background: rgba(27, 94, 32, 0.9);
+            color: white;
+            text-align: center;
+            padding: 20px;
+            width: 100%;
+            margin-top: auto;
+        }
+
+        @media (max-width: 768px) {
+            .header h1 {
+                font-size: 2em;
+            }
+            
+            .golf-club-svg {
+                width: 150px;
+                height: 225px;
+            }
+            
+            .welcome-text {
+                font-size: 1.2em;
+            }
+
+            .system-info {
+                font-size: 0.9em;
+                padding: 10px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>Elite Golf Club</h1>
+        <p>Where Excellence Meets the Green</p>
+        
+        <!-- SYSTEM INFORMATION FOR DEMO -->
+        <div class="system-info">
+            <span class="label">Server:</span> <%= node['hostname'] %> | 
+            <span class="label">OS:</span> <%= node['platform'].capitalize %> <%= node['platform_version'] %> | 
+            <span class="label">Architecture:</span> <%= node['kernel']['machine'] %>
+        </div>
+    </div>
+
+    <div class="main-content">
+        <div class="golf-club-container">
+            <svg class="golf-club-svg" viewBox="0 0 200 300" xmlns="http://www.w3.org/2000/svg">
+                <!-- Sleek Putter Head -->
+                <rect x="60" y="250" width="80" height="20" rx="10" fill="url(#metalGradient)" stroke="#555" stroke-width="2"/>
+                <rect x="65" y="255" width="70" height="10" rx="5" fill="#888"/>
+
+                <!-- Club Face Lines -->
+                <g stroke="#444" stroke-width="1">
+                  <line x1="70" y1="256" x2="70" y2="264"/>
+                  <line x1="75" y1="256" x2="75" y2="264"/>
+                  <line x1="80" y1="256" x2="80" y2="264"/>
+                  <line x1="85" y1="256" x2="85" y2="264"/>
+                  <line x1="90" y1="256" x2="90" y2="264"/>
+                  <line x1="95" y1="256" x2="95" y2="264"/>
+                  <line x1="100" y1="256" x2="100" y2="264"/>
+                  <line x1="105" y1="256" x2="105" y2="264"/>
+                </g>
+
+                <!-- Shaft -->
+                <rect x="97" y="60" width="6" height="190" fill="url(#shaftGradient)" stroke="#333" stroke-width="1"/>
+
+                <!-- Grip -->
+                <rect x="94" y="20" width="12" height="40" rx="6" fill="#111" stroke="#000" stroke-width="1"/>
+                <g fill="#333">
+                  <circle cx="100" cy="25" r="1"/>
+                  <circle cx="100" cy="30" r="1"/>
+                  <circle cx="100" cy="35" r="1"/>
+                  <circle cx="100" cy="40" r="1"/>
+                  <circle cx="100" cy="45" r="1"/>
+                  <circle cx="100" cy="50" r="1"/>
+                </g>
+
+                <!-- Golf Ball -->
+                <circle cx="40" cy="270" r="8" fill="#f5f5f5" stroke="#ccc" stroke-width="1"/>
+                <g fill="#ccc">
+                  <circle cx="38" cy="268" r="1"/>
+                  <circle cx="42" cy="268" r="1"/>
+                  <circle cx="40" cy="272" r="1"/>
+                  <circle cx="36" cy="270" r="1"/>
+                  <circle cx="44" cy="270" r="1"/>
+                </g>
+
+                <!-- Branding -->
+                <text x="100" y="15" text-anchor="middle" font-family="Georgia, serif" font-size="14" fill="#2e7d32" font-weight="bold">ELITE PUTTER</text>
+
+                <!-- Gradients -->
+                <defs>
+                  <linearGradient id="metalGradient" x1="0" y1="0" x2="1" y2="1">
+                    <stop offset="0%" stop-color="#bbb"/>
+                    <stop offset="100%" stop-color="#666"/>
+                  </linearGradient>
+                  <linearGradient id="shaftGradient" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stop-color="#999"/>
+                    <stop offset="100%" stop-color="#444"/>
+                  </linearGradient>
+                </defs>
+            </svg>
+            
+            <div class="welcome-text">
+                Welcome to Elite Golf Club - Your premier destination for championship golf!<br>
+                <small>Deployed with Chef on <%= node['platform'].capitalize %></small>
+            </div>
+        </div>
+
+        <div class="features">
+            <div class="feature-card">
+                <h3>Championship Courses</h3>
+                <p>Experience world-class golf on our meticulously maintained 18-hole championship course designed by renowned architects.</p>
+            </div>
+            
+            <div class="feature-card">
+                <h3>Professional Instruction</h3>
+                <p>Learn from PGA-certified professionals with personalized lessons tailored to improve your game at every level.</p>
+            </div>
+            
+            <div class="feature-card">
+                <h3>Luxury Amenities</h3>
+                <p>Enjoy our clubhouse, pro shop, dining facilities, and practice areas designed for the ultimate golf experience.</p>
+            </div>
+        </div>
+    </div>
+
+    <div class="footer">
+        <p>&copy; 2025 Elite Golf Club. All rights reserved. | Deployed with Chef v<%= Chef::VERSION %></p>
+    </div>
+</body>
+</html>
