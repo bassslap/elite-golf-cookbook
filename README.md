@@ -257,6 +257,96 @@ elite-golf-cookbook/
 └── README.md                   # This file
 ```
 
+## 🔧 Development & Deployment Workflow
+
+**IMPORTANT:** Follow this workflow when making changes to ensure proper versioning and deployment.
+
+### Making Changes to the Cookbook
+
+#### 1. **Update Version Number**
+```bash
+# Edit metadata.rb and increment the version
+nano metadata.rb
+# Change: version '1.0.3' to version '1.0.4' (or appropriate semantic version)
+```
+
+#### 2. **Commit Changes to Git**
+```bash
+# Add all changes
+git add .
+
+# Commit with descriptive message
+git commit -m "Description of changes - Update to version X.X.X"
+
+# Push to remote repository
+git push origin main
+```
+
+#### 3. **Deploy to Workstation and Chef Server**
+```bash
+# On your Chef workstation (ubuntu@workstation-linux-01)
+cd ~/chef-repo/cookbooks/elite-golf-cookbook
+
+# Pull latest changes
+git pull origin main
+
+# Upload to Chef Server
+cd ~/chef-repo
+knife cookbook upload elite-golf-cookbook --cookbook-path ./cookbooks
+
+# Verify upload
+knife cookbook show elite-golf-cookbook
+```
+
+#### 4. **Deploy to Target Nodes**
+```bash
+# Run chef-client on specific node
+knife ssh "name:node-name" "chef-client" -x administrator
+
+# Or run on multiple nodes
+knife ssh "recipe:elite-golf-cookbook" "chef-client" -x username
+
+# Monitor in Chef Automate for results
+```
+
+### Version Management Guidelines
+
+- **Patch versions (1.0.X)**: Bug fixes, small improvements, config changes
+- **Minor versions (1.X.0)**: New features, recipe additions, significant enhancements  
+- **Major versions (X.0.0)**: Breaking changes, platform support changes, major refactoring
+
+### Pre-Deployment Checklist
+
+- [ ] Version number updated in `metadata.rb`
+- [ ] Changes committed to git with descriptive message
+- [ ] Changes pushed to remote repository
+- [ ] Cookbook uploaded to Chef Server with new version
+- [ ] Target nodes identified for deployment
+- [ ] Chef Automate dashboard ready for monitoring
+- [ ] Rollback plan prepared (previous cookbook version noted)
+
+### Emergency Rollback Procedure
+
+If deployment fails:
+
+```bash
+# Upload previous version (replace X.X.X with last known good version)
+knife cookbook upload elite-golf-cookbook@X.X.X --cookbook-path ./cookbooks
+
+# Force chef-client run with previous version
+knife ssh "name:node-name" "chef-client" -x administrator
+
+# Or pin to specific version in environment/node attributes
+# "cookbook_versions": { "elite-golf-cookbook": "= X.X.X" }
+```
+
+### Testing Workflow
+
+1. **Development**: Test locally with `chef-client --local-mode`
+2. **Staging**: Deploy to test nodes first
+3. **Production**: Deploy to production nodes after validation
+4. **Verification**: Check health endpoints and Chef Automate compliance
+
 ## Deployment Examples
 
 ### Windows Server with Chef Client
@@ -336,6 +426,43 @@ You should see the Elite Golf Club website with:
 - Feature cards describing club amenities
 
 ### Troubleshooting
+
+#### Deployment Workflow Issues
+
+**Cookbook Upload Errors:**
+```bash
+# Error: Cannot find cookbook
+# Solution: Check cookbook path
+knife cookbook upload elite-golf-cookbook --cookbook-path ./cookbooks
+
+# Error: Version already exists  
+# Solution: Update version in metadata.rb first
+nano metadata.rb  # Increment version number
+```
+
+**Git Workflow Issues:**
+```bash
+# Error: Local changes conflict with git pull
+git stash          # Stash local changes
+git pull origin main
+git stash pop      # Restore changes if needed
+
+# Error: Push rejected
+git pull origin main  # Pull latest changes first
+git push origin main  # Then push
+```
+
+**Chef Client Deployment Issues:**
+```bash
+# Check cookbook version on server
+knife cookbook show elite-golf-cookbook
+
+# Check node run status
+knife node show node-name
+
+# Force chef-client run
+knife ssh "name:node-name" "chef-client" -x administrator -t 300
+```
 
 #### Windows Issues
 - Ensure IIS features are properly installed
