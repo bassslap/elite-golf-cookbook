@@ -269,28 +269,12 @@ powershell_script 'create_golf_website_fallback' do
       if (Get-Website -Name $siteName -ErrorAction SilentlyContinue) {
         Remove-Website -Name $siteName -ErrorAction SilentlyContinue
         Write-Host "Removed existing website: $siteName"
-      }
-      
-        # Create and configure the website with complete recreation for reliability
-  powershell_script 'create_elite_golf_site' do
-    code <<-EOH
-      $siteName = "#{site_name}"
-      $sitePath = "#{site_path}"
-      $port = #{port}
-      
-      Write-Host "Setting up Elite Golf Site with reliable recreation method..."
-      
-      # Remove existing website if it exists to ensure clean configuration
-      $existingSite = Get-Website -Name $siteName -ErrorAction SilentlyContinue
-      if ($existingSite) {
-        Write-Host "Removing existing website $siteName for clean recreation..."
-        Remove-Website -Name $siteName -ErrorAction SilentlyContinue
         Start-Sleep -Seconds 2
       }
       
-      # Create website with explicit settings for reliability
+      # Create website with explicit settings for reliability (PERMANENT FIX METHOD)
       Write-Host "Creating new website $siteName with explicit configuration..."
-      New-Website -Name $siteName -Port $port -PhysicalPath $sitePath -ApplicationPool "DefaultAppPool"
+      New-Website -Name $siteName -Port $port -PhysicalPath $physicalPath -ApplicationPool $appPoolName
       
       # Start the website
       Start-Website -Name $siteName -ErrorAction SilentlyContinue
@@ -317,9 +301,6 @@ powershell_script 'create_golf_website_fallback' do
           Write-Host "Website retry test also failed: $($_.Exception.Message)"
         }
       }
-    EOH
-    not_if { node['os'] != 'windows' }
-  end
     } catch {
       Write-Host "PowerShell method failed: $($_.Exception.Message)"
       Write-Host "Will attempt basic IIS setup..."
