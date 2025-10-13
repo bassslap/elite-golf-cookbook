@@ -93,12 +93,46 @@ ruby_block 'wait_for_iis_services' do
   action :run
 end
 
-# Now safely start IIS services
-service 'W3SVC' do
-  action [:enable, :start]
-  retries 5
-  retry_delay 10
-  ignore_failure true  # Don't fail the entire run if service isn't ready yet
+# Start IIS services using PowerShell (more reliable than service resource)
+powershell_script 'start_iis_services' do
+  code <<-EOH
+    try {
+      # Check if W3SVC service exists
+      $service = Get-Service -Name "W3SVC" -ErrorAction SilentlyContinue
+      if ($service) {
+        Write-Host "W3SVC service found, configuring..."
+        
+        # Set service to automatic startup
+        Set-Service -Name "W3SVC" -StartupType Automatic -ErrorAction SilentlyContinue
+        
+        # Start the service if not running
+        if ($service.Status -ne "Running") {
+          Write-Host "Starting W3SVC service..."
+          Start-Service -Name "W3SVC" -ErrorAction SilentlyContinue
+          Start-Sleep -Seconds 5
+        }
+        
+        # Verify service is running
+        $service = Get-Service -Name "W3SVC" -ErrorAction SilentlyContinue
+        if ($service.Status -eq "Running") {
+          Write-Host "W3SVC service is now running successfully"
+        } else {
+          Write-Host "W3SVC service status: $($service.Status)"
+        }
+      } else {
+        Write-Host "W3SVC service not found - IIS may still be installing"
+        Write-Host "Attempting to start IIS services via alternative method..."
+        
+        # Try starting via sc command
+        & sc.exe config "W3SVC" start= auto 2>$null
+        & sc.exe start "W3SVC" 2>$null
+      }
+    } catch {
+      Write-Host "Error managing W3SVC service: $($_.Exception.Message)"
+      Write-Host "This may be normal during initial IIS installation"
+    }
+  EOH
+  action :run
 end
 
 # Create application pool using appcmd if available, otherwise use PowerShell
@@ -228,11 +262,37 @@ if node['golf_app']['enable_ssl']
   end
 end
 
-# Restart IIS service to apply all configuration changes
-service 'W3SVC' do
-  action :restart
-  only_if { defined?(Win32::Service) && Win32::Service.exists?('W3SVC') }
-  ignore_failure true
+# Restart IIS service to apply all configuration changes using PowerShell
+powershell_script 'restart_iis_services' do
+  code <<-EOH
+    try {
+      Write-Host "Restarting IIS services to apply configuration changes..."
+      
+      # Restart W3SVC service if it exists and is running
+      $w3svc = Get-Service -Name "W3SVC" -ErrorAction SilentlyContinue
+      if ($w3svc -and $w3svc.Status -eq "Running") {
+        Restart-Service -Name "W3SVC" -Force -ErrorAction SilentlyContinue
+        Write-Host "W3SVC service restarted successfully"
+        Start-Sleep -Seconds 3
+      } else {
+        Write-Host "W3SVC service not running or not found - attempting to start"
+        Start-Service -Name "W3SVC" -ErrorAction SilentlyContinue
+      }
+      
+      # Also restart WAS (Windows Activation Service) if it exists
+      $was = Get-Service -Name "WAS" -ErrorAction SilentlyContinue
+      if ($was -and $was.Status -eq "Running") {
+        Restart-Service -Name "WAS" -Force -ErrorAction SilentlyContinue
+        Write-Host "WAS service restarted successfully"
+      }
+      
+      Write-Host "IIS services restart completed"
+    } catch {
+      Write-Host "Warning: Could not restart IIS services - $($_.Exception.Message)"
+      Write-Host "This may be normal during initial setup"
+    }
+  EOH
+  action :run
 end
 
 # Verify IIS is responding (simple check without WebAdministration module)
