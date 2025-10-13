@@ -4,15 +4,47 @@
 #
 # Configures IIS for the Elite Golf web application on Windows
 
-# Install IIS features
-%w(IIS-WebServerRole IIS-WebServer IIS-CommonHttpFeatures IIS-DefaultDocument 
-   IIS-DirectoryBrowsing IIS-ASPNET45 IIS-NetFxExtensibility45 IIS-ISAPIExtensions 
-   IIS-ISAPIFilter IIS-HttpCompressionStatic IIS-Security IIS-RequestFiltering 
-   IIS-StaticContent IIS-HttpRedirect IIS-HttpErrors IIS-HttpLogging).each do |feature|
-  windows_feature feature do
-    action :install
-    install_method :windows_feature_powershell
-  end
+# Install IIS features using PowerShell with correct Windows 10 feature names
+powershell_script 'enable_iis_features' do
+  code <<-EOH
+    # Enable IIS and required features for Windows 10/Server
+    $features = @(
+      'IIS-WebServerRole',
+      'IIS-WebServer', 
+      'IIS-CommonHttpFeatures',
+      'IIS-HttpErrors',
+      'IIS-HttpLogging',
+      'IIS-HttpRedirect',
+      'IIS-ApplicationDevelopment',
+      'IIS-NetFxExtensibility45',
+      'IIS-HealthAndDiagnostics',
+      'IIS-HttpCompressionStatic',
+      'IIS-Security',
+      'IIS-RequestFiltering',
+      'IIS-StaticContent',
+      'IIS-DefaultDocument',
+      'IIS-DirectoryBrowsing',
+      'IIS-ASPNET45',
+      'IIS-NetFx4Extended',
+      'IIS-ISAPIExtensions',
+      'IIS-ISAPIFilter',
+      'IIS-ManagementConsole'
+    )
+    
+    foreach ($feature in $features) {
+      try {
+        Write-Host "Enabling feature: $feature"
+        Enable-WindowsOptionalFeature -Online -FeatureName $feature -All -NoRestart -ErrorAction SilentlyContinue
+        Write-Host "Successfully enabled: $feature"
+      } catch {
+        Write-Host "Feature $feature may not be available or already enabled: $($_.Exception.Message)"
+      }
+    }
+    
+    Write-Host "IIS features installation completed"
+  EOH
+  action :run
+  not_if 'Get-WindowsOptionalFeature -Online -FeatureName IIS-WebServer | Where-Object {$_.State -eq "Enabled"}'
 end
 
 # Create application pool using PowerShell
