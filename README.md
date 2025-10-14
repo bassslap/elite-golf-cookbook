@@ -630,6 +630,161 @@ After successful deployment, verify:
    systemctl status apache2
    ```
 
+## Compliance Testing with InSpec
+
+This cookbook includes comprehensive compliance testing using Chef InSpec to validate deployment security and configuration standards.
+
+### Compliance Profile Structure
+
+```
+compliance/
+└── profiles/
+    └── elite_golf_compliance/
+        ├── inspec.yml              # Profile metadata
+        └── controls/
+            └── default.rb          # Compliance tests
+```
+
+### Running Compliance Tests
+
+#### Local Testing
+```bash
+# Test locally after cookbook deployment
+inspec exec compliance/profiles/elite_golf_compliance
+```
+
+#### Remote Testing (Chef Server Managed Nodes)
+```bash
+# Test Linux nodes
+inspec exec compliance/profiles/elite_golf_compliance \
+  -t ssh://10.10.3.4 \
+  --user ubuntu \
+  --key-files ~/.ssh/key.pem
+
+# Test Windows nodes
+inspec exec compliance/profiles/elite_golf_compliance \
+  -t winrm://10.10.3.7 \
+  --user Administrator \
+  --password PASSWORD
+```
+
+#### Multi-Platform Testing
+```bash
+# Test both platforms simultaneously
+inspec exec compliance/profiles/elite_golf_compliance \
+  -t ssh://10.10.3.4 \
+  -t winrm://10.10.3.7 \
+  --ssh-user ubuntu \
+  --winrm-user Administrator \
+  --ssh-key-files ~/.ssh/key.pem \
+  --winrm-password PASSWORD
+```
+
+### Policy-Based Deployment with Compliance
+
+#### Using Chef Policyfiles
+
+1. **Install Policy Dependencies**
+   ```bash
+   chef install
+   ```
+
+2. **Upload Policy to Chef Server**
+   ```bash
+   chef push production
+   ```
+
+3. **Convert Nodes to Policy Management**
+   ```bash
+   # Set nodes to use policy instead of run lists
+   knife node policy set node-win-01 elite-golf-policy production
+   knife node policy set node-linux-04 elite-golf-policy production
+   ```
+
+4. **Deploy Policy (Automatic with 5-minute intervals)**
+   ```bash
+   # Check policy assignment
+   knife node show node-win-01
+   knife node show node-linux-04
+   ```
+
+5. **Validate Compliance After Deployment**
+   ```bash
+   # Run compliance tests on policy-managed nodes
+   inspec exec compliance/profiles/elite_golf_compliance \
+     -t ssh://node-linux-04 \
+     --user ubuntu --key-files ~/.ssh/key.pem
+   
+   inspec exec compliance/profiles/elite_golf_compliance \
+     -t winrm://node-win-01 \
+     --user Administrator --password PASSWORD
+   ```
+
+### Compliance Test Coverage
+
+The InSpec profile validates:
+
+- ✅ **Web Application Deployment**
+  - Directory structure exists
+  - Application files are properly deployed
+  - Content validation (golf club branding)
+  - Demo configuration files
+
+- ✅ **Web Server Configuration**  
+  - Windows IIS features installed and running
+  - Linux Apache package installed and enabled
+  - Port 80 listening for web traffic
+  - Service status validation
+
+- ✅ **Security Compliance**
+  - File permissions and ownership
+  - Windows IIS security configuration
+  - Linux Apache permissions
+  - Web.config deployment (Windows)
+
+- ✅ **Application Functionality**
+  - HTTP response codes (200 OK)
+  - Content type headers
+  - Health check endpoints
+  - Metrics API availability
+
+- ✅ **Chef Infrastructure Compliance**
+  - Chef client installation verification
+  - Demo configuration validation
+  - System information display
+
+### Demo Workflow: Deploy → Test → Prove Compliance
+
+Perfect for customer POCs:
+
+1. **"Before" State**: Show clean system
+2. **Deploy**: Run Chef cookbook/policy  
+3. **"After" State**: Show deployed application
+4. **Prove Compliance**: Run InSpec tests (should show 39 passing tests)
+
+This demonstrates **Infrastructure as Code** with **Compliance as Code** - the complete enterprise workflow.
+
+### Compliance Reporting
+
+Generate reports for stakeholders:
+
+```bash
+# JSON report for automation
+inspec exec compliance/profiles/elite_golf_compliance \
+  -t ssh://10.10.3.4 \
+  --reporter json:/tmp/compliance-report.json
+
+# HTML report for presentations  
+inspec exec compliance/profiles/elite_golf_compliance \
+  -t ssh://10.10.3.4 \
+  --reporter html:/tmp/compliance-report.html
+
+# JUnit format for CI/CD integration
+inspec exec compliance/profiles/elite_golf_compliance \
+  -t ssh://10.10.3.4 \
+  --reporter junit:/tmp/compliance-report.xml
+```
+
 ## Support
 
 For issues and questions:
