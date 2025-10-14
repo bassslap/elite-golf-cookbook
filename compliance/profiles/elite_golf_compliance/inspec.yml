@@ -1,12 +1,30 @@
 name: elite_golf_compliance
-title: Elite Golf InSpec Profile
-maintainer: Bryan Phillips
-copyright: Bryan Phillips
-copyright_email: bryskie@gmail.com 
+title: Elite Golf Application Compliance Profile
+maintainer: Elite Golf Team
+copyright: Elite Golf Team
+copyright_email: admin@elitegolf.com
 license: Apache-2.0
-summary: An InSpec Compliance Profile
-version: 4.0.0
+summary: Comprehensive compliance validation for Elite Golf cookbook deployment across Windows and Linux platforms
+description: |
+  This InSpec profile validates the complete deployment of the Elite Golf cookbook including:
+  - Web application deployment verification
+  - Web server configuration compliance
+  - Security and permissions validation  
+  - Application functionality testing
+  - Chef infrastructure compliance
+version: 1.0.31
+inspec_version: '>= 4.0'
+
 supports:
-  - platform-family: redhat
   - platform-family: windows
-  - platform-family: debian
+  - platform-family: debian  
+  - platform-family: rhel
+  - platform-family: suse
+
+depends: []
+
+tags:
+  - cookbook: elite-golf-cookbook
+  - application: web
+  - compliance: security
+  - demo: poc
