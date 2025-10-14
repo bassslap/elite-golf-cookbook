@@ -7,6 +7,20 @@
 # Include base recipe
 include_recipe 'elite-golf-cookbook::default'
 
+# Run compliance scan as part of chef-client run
+execute 'run_elite_golf_compliance' do
+  command 'inspec exec /var/chef/cache/cookbooks/elite-golf-cookbook/compliance/profiles/elite_golf_compliance --reporter json-automate --config /etc/chef/client.rb'
+  only_if { ::File.exist?('/usr/bin/inspec') }
+  action :run
+end
+
+# Schedule regular compliance scans via cron (every 15 minutes)
+cron 'elite_golf_compliance_scan' do
+  minute '*/15'
+  command 'inspec exec /var/chef/cache/cookbooks/elite-golf-cookbook/compliance/profiles/elite_golf_compliance --reporter json-automate --config /etc/chef/client.rb'
+  only_if { ::File.exist?('/usr/bin/inspec') }
+end
+
 # Add health check endpoint for monitoring demonstrations
 cookbook_file "#{node['golf_app']['web_root']}/health" do
   source 'health.html'
