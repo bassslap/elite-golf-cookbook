@@ -1,0 +1,12 @@
+name: elite_golf_compliance
+title: Elite Golf InSpec Profile
+maintainer: Bryan Phillips
+copyright: Bryan Phillips
+copyright_email: bryskie@gmail.com 
+license: Apache-2.0
+summary: An InSpec Compliance Profile
+version: 4.0.0
+supports:
+  - platform-family: redhat
+  - platform-family: windows
+  - platform-family: debian

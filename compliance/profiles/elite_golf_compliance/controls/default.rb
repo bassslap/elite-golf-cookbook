@@ -1,5 +1,6 @@
 # Elite Golf Cookbook - InSpec Compliance Tests
 # These tests demonstrate Chef's compliance capabilities for customer POCs
+# Author: Bryan Phillips (bryskie@gmail.com)
 
 title 'Elite Golf Application Compliance Tests'
 
