@@ -23,12 +23,8 @@ end
 default['golf_app']['enable_ssl'] = false
 default['golf_app']['maintenance_mode'] = false\
 
-# Enable audit cookbook and configure elite_golf_compliance profile for Automate reporting
+
+# Enable audit cookbook and configure reporting for Automate
 default['audit']['compliance_phase'] = true
 default['audit']['fetcher'] = 'chef-automate'
-default['audit']['reporter'] = 'chef-server-automate', 'cli'
-#default['audit']['profiles'] = {
-#'elite_golf_compliance' => {
- #   'compliance' => 'admin/elite_golf_compliance'
-#  }
-#}
+default['audit']['reporter'] = ['chef-server-automate', 'cli']

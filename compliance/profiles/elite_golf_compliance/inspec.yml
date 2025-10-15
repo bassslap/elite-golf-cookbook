@@ -12,7 +12,7 @@ description: |
   - Security and permissions validation  
   - Application functionality testing
   - Chef infrastructure compliance
-version: 1.0.38
+version: 1.0.39
 inspec_version: '>= 4.0'
 
 supports:

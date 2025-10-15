@@ -7,6 +7,15 @@
 # Include base recipe
 include_recipe 'elite-golf-cookbook::default'
 
+# Conditionally set compliance profile if node is tagged 'golf-demo'
+if node['tags'].include?('golf-demo')
+  node.override['audit']['profiles'] = {
+    'elite_golf_compliance' => {
+      'compliance' => 'admin/elite_golf_compliance'
+    }
+  }
+end
+
 # Run compliance scan as part of chef-client run
 execute 'run_elite_golf_compliance' do
   command 'inspec exec /var/chef/cache/cookbooks/elite-golf-cookbook/compliance/profiles/elite_golf_compliance --reporter json-automate --config /etc/chef/client.rb'
@@ -14,9 +23,9 @@ execute 'run_elite_golf_compliance' do
   action :run
 end
 
-# Schedule regular compliance scans via cron (every 15 minutes)
+# Schedule regular compliance scans via cron (every 5 minutes)
 cron 'elite_golf_compliance_scan' do
-  minute '*/15'
+  minute '*/5'
   command 'inspec exec /var/chef/cache/cookbooks/elite-golf-cookbook/compliance/profiles/elite_golf_compliance --reporter json-automate --config /etc/chef/client.rb'
   only_if { ::File.exist?('/usr/bin/inspec') }
 end
