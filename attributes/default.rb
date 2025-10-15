@@ -1,10 +1,7 @@
 # Enable audit cookbook and configure elite_golf_compliance profile for Automate reporting
-default['audit']['reporter'] = ['chef-server-automate']
-default['audit']['profiles'] = {
-  'elite_golf_compliance' => {
-    'compliance' => 'admin/elite_golf_compliance'
-  }
-}
+default['audit']['compliance_phase'] = true
+default['audit']['fetcher'] = 'chef-automate'
+default['audit']['reporter'] = 'chef-server-automate', 'cli'
 # Default attributes for elite-golf-cookbook
 
 # Common settings
