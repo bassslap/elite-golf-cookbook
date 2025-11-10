@@ -525,6 +525,21 @@ powershell_script 'final_website_creation' do
     Write-Host "=== FINAL WEBSITE CREATION ==="
     Write-Host "Applying the proven method after all files are deployed..."
     
+    # Import IIS PowerShell module first
+    Write-Host "Importing IIS PowerShell module..."
+    try {
+      Import-Module WebAdministration -ErrorAction Stop
+      Write-Host "SUCCESS: WebAdministration module imported"
+    } catch {
+      Write-Host "WARNING: Could not import WebAdministration module, trying alternative approach..."
+      # Alternative: Use appcmd.exe for IIS management
+      $appcmd = "$env:SystemRoot\\System32\\inetsrv\\appcmd.exe"
+      if (-not (Test-Path $appcmd)) {
+        Write-Host "ERROR: Neither PowerShell WebAdministration module nor appcmd.exe found"
+        exit 1
+      }
+    }
+    
     $siteName = "Elite Golf Site"
     $port = 80
     $physicalPath = "C:\\inetpub\\wwwroot\\golf"
@@ -544,29 +559,61 @@ powershell_script 'final_website_creation' do
     # STEP 1: Clean removal (the exact method that works)
     Write-Host "STEP 1: Removing any existing websites that might conflict..."
     
-    # Remove Default Web Site
-    $defaultSite = Get-Website -Name "Default Web Site" -ErrorAction SilentlyContinue
-    if ($defaultSite) {
-      Write-Host "Removing Default Web Site..."
-      Remove-Website -Name "Default Web Site" -ErrorAction SilentlyContinue
+    # Check if PowerShell cmdlets are available
+    $usePowerShell = $true
+    try {
+      Get-Command "Get-Website" -ErrorAction Stop | Out-Null
+    } catch {
+      Write-Host "PowerShell WebAdministration cmdlets not available, using appcmd.exe"
+      $usePowerShell = $false
+      $appcmd = "$env:SystemRoot\\System32\\inetsrv\\appcmd.exe"
     }
     
-    # Remove Elite Golf Site (always, for clean state)
-    $existingSite = Get-Website -Name $siteName -ErrorAction SilentlyContinue
-    if ($existingSite) {
-      Write-Host "Removing existing $siteName..."
-      Remove-Website -Name $siteName -ErrorAction SilentlyContinue
+    if ($usePowerShell) {
+      # Use PowerShell cmdlets
+      # Remove Default Web Site
+      $defaultSite = Get-Website -Name "Default Web Site" -ErrorAction SilentlyContinue
+      if ($defaultSite) {
+        Write-Host "Removing Default Web Site..."
+        Remove-Website -Name "Default Web Site" -ErrorAction SilentlyContinue
+      }
+      
+      # Remove Elite Golf Site (always, for clean state)
+      $existingSite = Get-Website -Name $siteName -ErrorAction SilentlyContinue
+      if ($existingSite) {
+        Write-Host "Removing existing $siteName..."
+        Remove-Website -Name $siteName -ErrorAction SilentlyContinue
+      }
+    } else {
+      # Use appcmd.exe as fallback
+      Write-Host "Using appcmd.exe for IIS management..."
+      & $appcmd delete site "Default Web Site" 2>$null
+      & $appcmd delete site $siteName 2>$null
     }
     
     Start-Sleep -Seconds 2
     
     # STEP 2: Create with explicit settings (the exact method that works)
     Write-Host "STEP 2: Creating $siteName with proven configuration..."
-    New-Website -Name $siteName -Port $port -PhysicalPath $physicalPath -ApplicationPool "DefaultAppPool"
+    
+    if ($usePowerShell) {
+      # Use PowerShell cmdlets
+      New-Website -Name $siteName -Port $port -PhysicalPath $physicalPath -ApplicationPool "DefaultAppPool"
+    } else {
+      # Use appcmd.exe as fallback
+      & $appcmd add site /name:$siteName /bindings:"http/*:$port:" /physicalPath:$physicalPath
+    }
     
     # STEP 3: Start the website (the exact method that works)
     Write-Host "STEP 3: Starting $siteName..."
-    Start-Website -Name $siteName -ErrorAction SilentlyContinue
+    
+    if ($usePowerShell) {
+      # Use PowerShell cmdlets
+      Start-Website -Name $siteName -ErrorAction SilentlyContinue
+    } else {
+      # Use appcmd.exe as fallback
+      & $appcmd start site $siteName
+    }
     Start-Sleep -Seconds 3
     
     # STEP 4: Verify it's working (immediate test)
