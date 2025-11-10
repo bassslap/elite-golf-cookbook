@@ -163,7 +163,8 @@
         <div class="system-info">
             <span class="label">Server:</span> <%= node['hostname'] %> | 
             <span class="label">OS:</span> <%= node['platform'].capitalize %> <%= node['platform_version'] %> | 
-            <span class="label">Architecture:</span> <%= node['kernel']['machine'] %>
+            <span class="label">Architecture:</span> <%= node['kernel']['machine'] %> |
+            <span class="label">System Time:</span> <span id="live-time"></span>
         </div>
     </div>
 
@@ -253,5 +254,27 @@
     <div class="footer">
         <p>&copy; 2025 Elite Golf Club. All rights reserved. | Deployed with Chef v<%= Chef::VERSION %></p>
     </div>
+
+    <script>
+        function updateLiveTime() {
+            const now = new Date();
+            const timeString = now.toLocaleString('en-US', {
+                timeZone: '<%= node['time']['timezone'] %>',
+                year: 'numeric',
+                month: '2-digit',
+                day: '2-digit',
+                hour: '2-digit',
+                minute: '2-digit',
+                second: '2-digit',
+                timeZoneName: 'short',
+                hour12: false
+            });
+            document.getElementById('live-time').textContent = timeString;
+        }
+        
+        // Update time immediately and then every second
+        updateLiveTime();
+        setInterval(updateLiveTime, 1000);
+    </script>
 </body>
 </html>
