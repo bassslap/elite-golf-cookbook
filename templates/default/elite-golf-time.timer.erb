@@ -1,0 +1,10 @@
+[Unit]
+Description=Elite Golf Server Time Update Timer
+Requires=elite-golf-time.service
+
+[Timer]
+OnActiveSec=1s
+OnUnitActiveSec=2s
+
+[Install]
+WantedBy=timers.target

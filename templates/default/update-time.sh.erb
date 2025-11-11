@@ -1,0 +1,25 @@
+#!/bin/bash
+# Shell script to update server time JSON file
+
+WEB_ROOT="<%= @web_root %>"
+TIME_FILE="$WEB_ROOT/server-time.json"
+
+# Get current time information
+timestamp=$(date +%s)
+datetime=$(date '+%m/%d/%Y, %I:%M:%S %p')
+updated=$(date '+%Y-%m-%d %H:%M:%S')
+
+# Create JSON (using printf for better control)
+cat > "${TIME_FILE}.tmp" << EOF
+{
+    "timestamp": $timestamp,
+    "datetime": "$datetime",
+    "timezone": "<%= @timezone rescue 'Unknown' %>",
+    "server": "<%= @hostname %>", 
+    "platform": "<%= @platform.capitalize %> <%= @platform_version %>",
+    "updated": "$updated"
+}
+EOF
+
+# Move temp file to final location atomically
+mv "${TIME_FILE}.tmp" "$TIME_FILE"

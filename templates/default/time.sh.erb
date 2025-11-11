@@ -1,0 +1,19 @@
+#!/bin/bash
+# Simple shell script to return current server time as JSON
+
+# Get current time
+timestamp=$(date +%s)
+datetime=$(date '+%m/%d/%Y, %I:%M:%S %p')
+
+# Create JSON response  
+cat << EOF
+Content-Type: application/json
+
+{
+    "timestamp": $timestamp,
+    "datetime": "$datetime", 
+    "timezone": "<%= node['time']['timezone'] rescue 'Unknown' %>",
+    "server": "<%= node['hostname'] %>",
+    "platform": "<%= node['platform'].capitalize %> <%= node['platform_version'] %>"
+}
+EOF
