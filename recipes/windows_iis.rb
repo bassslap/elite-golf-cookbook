@@ -59,6 +59,7 @@ powershell_script 'enable_iis_features' do
       'IIS-ISAPIExtensions',
       'IIS-ISAPIFilter',
       'IIS-ManagementConsole',
+      'IIS-ManagementScriptingTools',
       'IIS-IIS6ManagementCompatibility',
       'IIS-Metabase',
       'IIS-ManagementService'
@@ -342,17 +343,37 @@ end
 # Ensure Elite Golf Site is the primary site on port 80
 powershell_script 'configure_primary_website' do
   code <<-EOH
-    Import-Module WebAdministration -ErrorAction SilentlyContinue
-
-    # Check if PowerShell cmdlets are available
-    $usePowerShell = $true
+    # Import IIS PowerShell module
+    $useWebAdmin = $false
     try {
-      Get-Command "Get-Website" -ErrorAction Stop | Out-Null
+      Import-Module WebAdministration -ErrorAction Stop
+      $useWebAdmin = $true
+      Write-Host "SUCCESS: WebAdministration module imported"
     } catch {
-      Write-Host "PowerShell WebAdministration cmdlets not available, using appcmd.exe"
-      $usePowerShell = $false
-      $appcmd = "$env:SystemRoot\\System32\\inetsrv\\appcmd.exe"
+      Write-Host "WARNING: Could not import WebAdministration module, using appcmd.exe fallback"
+      
+      # Find appcmd.exe
+      $appcmdPaths = @(
+        "$env:SystemRoot\\System32\\inetsrv\\appcmd.exe",
+        "$env:windir\\System32\\inetsrv\\appcmd.exe",
+        "C:\\Windows\\System32\\inetsrv\\appcmd.exe"
+      )
+      
+      $appcmd = $null
+      foreach ($path in $appcmdPaths) {
+        if (Test-Path $path) {
+          $appcmd = $path
+          break
+        }
+      }
+      
+      if (-not $appcmd) {
+        Write-Host "ERROR: appcmd.exe not found - IIS Management Tools may not be installed"
+        throw "IIS Management Tools not available"
+      }
     }
+
+    $usePowerShell = $useWebAdmin
 
     try {
       Write-Host "Configuring Elite Golf Site as primary website..."
@@ -568,15 +589,42 @@ powershell_script 'final_website_creation' do
 
     # Import IIS PowerShell module first
     Write-Host "Importing IIS PowerShell module..."
+    $useWebAdmin = $false
     try {
       Import-Module WebAdministration -ErrorAction Stop
       Write-Host "SUCCESS: WebAdministration module imported"
+      $useWebAdmin = $true
     } catch {
-      Write-Host "WARNING: Could not import WebAdministration module, trying alternative approach..."
-      # Alternative: Use appcmd.exe for IIS management
-      $appcmd = "$env:SystemRoot\\System32\\inetsrv\\appcmd.exe"
-      if (-not (Test-Path $appcmd)) {
+      Write-Host "WARNING: Could not import WebAdministration module, checking for appcmd.exe..."
+      
+      # Check multiple possible locations for appcmd.exe
+      $appcmdPaths = @(
+        "$env:SystemRoot\\System32\\inetsrv\\appcmd.exe",
+        "$env:windir\\System32\\inetsrv\\appcmd.exe",
+        "C:\\Windows\\System32\\inetsrv\\appcmd.exe"
+      )
+      
+      $appcmd = $null
+      foreach ($path in $appcmdPaths) {
+        if (Test-Path $path) {
+          $appcmd = $path
+          Write-Host "SUCCESS: Found appcmd.exe at $path"
+          break
+        }
+      }
+      
+      if (-not $appcmd) {
         Write-Host "ERROR: Neither PowerShell WebAdministration module nor appcmd.exe found"
+        Write-Host "IIS Management Tools may not be properly installed"
+        Write-Host "Checking IIS installation..."
+        
+        # Try to check if IIS is installed at all
+        $iisService = Get-Service -Name "W3SVC" -ErrorAction SilentlyContinue
+        if ($iisService) {
+          Write-Host "IIS Service found but management tools missing"
+        } else {
+          Write-Host "IIS Service not found - IIS may not be installed"
+        }
         exit 1
       }
     }
@@ -600,14 +648,10 @@ powershell_script 'final_website_creation' do
     # STEP 1: Clean removal (the exact method that works)
     Write-Host "STEP 1: Removing any existing websites that might conflict..."
 
-    # Check if PowerShell cmdlets are available
-    $usePowerShell = $true
-    try {
-      Get-Command "Get-Website" -ErrorAction Stop | Out-Null
-    } catch {
-      Write-Host "PowerShell WebAdministration cmdlets not available, using appcmd.exe"
-      $usePowerShell = $false
-      $appcmd = "$env:SystemRoot\\System32\\inetsrv\\appcmd.exe"
+    # Use the method determined during module import
+    $usePowerShell = $useWebAdmin
+    if (-not $usePowerShell) {
+      Write-Host "Using appcmd.exe for IIS management at: $appcmd"
     }
 
     if ($usePowerShell) {
