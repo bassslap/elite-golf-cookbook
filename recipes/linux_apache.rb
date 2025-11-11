@@ -9,7 +9,7 @@ package 'apache2' do
   case node['platform']
   when 'ubuntu', 'debian'
     package_name 'apache2'
-  when 'centos', 'redhat', 'fedora'
+  when 'centos', 'redhat', 'fedora', 'amazon'
     package_name 'httpd'
   end
   action :install
@@ -22,7 +22,7 @@ end
     when 'ubuntu', 'debian'
       command "a2enmod #{mod}"
       not_if "apache2ctl -M | grep #{mod}"
-    when 'centos', 'redhat', 'fedora'
+    when 'centos', 'redhat', 'fedora', 'amazon'
       command "echo 'LoadModule #{mod}_module modules/mod_#{mod}.so' >> /etc/httpd/conf/httpd.conf"
       not_if "grep 'LoadModule #{mod}_module' /etc/httpd/conf/httpd.conf"
     end
@@ -42,7 +42,7 @@ template '/etc/apache2/sites-available/golf.conf' do
   case node['platform']
   when 'ubuntu', 'debian'
     path '/etc/apache2/sites-available/golf.conf'
-  when 'centos', 'redhat', 'fedora'
+  when 'centos', 'redhat', 'fedora', 'amazon'
     path '/etc/httpd/conf.d/golf.conf'
   end
   notifies :reload, 'service[apache2]', :delayed
@@ -77,7 +77,7 @@ service 'apache2' do
   case node['platform']
   when 'ubuntu', 'debian'
     service_name 'apache2'
-  when 'centos', 'redhat', 'fedora'
+  when 'centos', 'redhat', 'fedora', 'amazon'
     service_name 'httpd'
   end
   action [:enable, :start]
