@@ -8,8 +8,7 @@
 directory node['golf_app']['web_root'] do
   recursive true
   action :create
-  case node['platform']
-  when 'windows'
+  if platform?('windows')
     rights :full_control, 'IIS_IUSRS'
     rights :full_control, 'IUSR'
   else
@@ -22,8 +21,7 @@ end
 # Deploy the web application files with dynamic system information
 template "#{node['golf_app']['web_root']}/index.html" do
   source 'index.html.erb'
-  case node['platform']
-  when 'windows'
+  if platform?('windows')
     rights :read, 'IIS_IUSRS'
     rights :read, 'IUSR'
   else
@@ -42,8 +40,7 @@ template "#{node['golf_app']['web_root']}/index.html" do
 end
 
 # Platform-specific web server configuration
-case node['platform']
-when 'windows'
+if platform?('windows')
   # Configure IIS
   include_recipe 'elite-golf-cookbook::windows_iis'
 else

@@ -6,12 +6,12 @@ title 'Elite Golf Application Compliance Tests'
 
 # Test web application deployment
 describe 'Elite Golf Web Application' do
-  case os.family
-  when 'windows'
-    web_root = 'C:/inetpub/wwwroot/golf'
-  else
-    web_root = '/var/www/html/golf'
-  end
+  web_root = case os.family
+             when 'windows'
+               'C:/inetpub/wwwroot/golf'
+             else
+               '/var/www/html/golf'
+             end
 
   # Verify web root directory exists
   describe directory(web_root) do
@@ -65,11 +65,6 @@ describe 'Web Server Configuration' do
       it { should be_running }
     end
 
-    # Test if port 80 is listening (default web port)
-    describe port(80) do
-      it { should be_listening }
-    end
-
   else
     # Test web server is installed (Apache/httpd based on platform)
     if os.debian?
@@ -91,11 +86,11 @@ describe 'Web Server Configuration' do
         it { should be_running }
       end
     end
+  end
 
-    # Test if port 80 is listening (default web port)
-    describe port(80) do
-      it { should be_listening }
-    end
+  # Test if port 80 is listening (default web port)
+  describe port(80) do
+    it { should be_listening }
   end
 end
 
@@ -104,7 +99,7 @@ describe 'Security Compliance' do
   case os.family
   when 'windows'
     web_root = 'C:/inetpub/wwwroot/golf'
-    
+
     # Test file permissions on Windows
     describe file(web_root) do
       it { should exist }
@@ -118,7 +113,7 @@ describe 'Security Compliance' do
 
   else
     web_root = '/var/www/html/golf'
-    
+
     # Test file permissions on Linux - basic checks
     describe file(web_root) do
       it { should exist }
@@ -140,7 +135,7 @@ describe 'Application Functionality' do
   describe http('http://localhost') do
     its('status') { should cmp 200 }
     its('body') { should match(/Elite Golf Club/) }
-    its('headers.Content-Type') { should match(/text\/html/) }
+    its('headers.Content-Type') { should match(%r{text/html}) }
   end
 
   # Test health check endpoint
@@ -152,7 +147,7 @@ describe 'Application Functionality' do
   # Test metrics endpoint
   describe http('http://localhost/metrics.json') do
     its('status') { should cmp 200 }
-    its('headers.Content-Type') { should match(/application\/json/) }
+    its('headers.Content-Type') { should match(%r{application/json}) }
     its('body') { should match(/"status": "healthy"/) }
   end
 end

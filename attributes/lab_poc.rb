@@ -11,19 +11,18 @@ if node['golf_app']['lab_mode']
   # Use standard HTTP port for customer demos (80 is expected)
   default['golf_app']['port'] = 80
   default['golf_app']['ssl_port'] = 443
-  
+
   # Use standard IIS paths for better compatibility
-  case node['platform']
-  when 'windows'
-    default['golf_app']['web_root'] = 'C:/inetpub/wwwroot/golf'
-  else
-    default['golf_app']['web_root'] = '/var/www/html/golf'
-  end
-  
+  default['golf_app']['web_root'] = if platform?('windows')
+                                      'C:/inetpub/wwwroot/golf'
+                                    else
+                                      '/var/www/html/golf'
+                                    end
+
   # Demo monitoring settings
   default['golf_app']['health_check'] = true
   default['golf_app']['metrics_enabled'] = true
-  
+
   # Customer demo branding
   default['golf_app']['customer_name'] = 'Demo Customer Corp'
   default['golf_app']['poc_version'] = '1.0-POC'

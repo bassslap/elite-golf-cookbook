@@ -51,7 +51,7 @@ end
 # Enable the site on Ubuntu/Debian
 execute 'enable_golf_site' do
   command 'a2ensite golf.conf'
-  only_if { %w(ubuntu debian).include?(node['platform']) }
+  only_if { platform?('ubuntu', 'debian') }
   not_if 'a2ensite -q golf'
   notifies :reload, 'service[apache2]', :delayed
 end
@@ -59,7 +59,7 @@ end
 # Disable default site on Ubuntu/Debian
 execute 'disable_default_site' do
   command 'a2dissite 000-default'
-  only_if { %w(ubuntu debian).include?(node['platform']) }
+  only_if { platform?('ubuntu', 'debian') }
   only_if 'a2ensite -q 000-default'
   notifies :reload, 'service[apache2]', :delayed
 end
