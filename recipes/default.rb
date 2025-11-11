@@ -59,18 +59,18 @@ if platform?('windows')
     code <<-EOH
       $scriptPath = "#{node['golf_app']['web_root']}\\update-time.ps1"
       $taskName = "EliteGolfTimeUpdate"
-      
+
       # Remove existing task if it exists
       Unregister-ScheduledTask -TaskName $taskName -Confirm:$false -ErrorAction SilentlyContinue
-      
+
       # Create new scheduled task that runs every 2 seconds
       $action = New-ScheduledTaskAction -Execute "powershell.exe" -Argument "-ExecutionPolicy Bypass -File `"$scriptPath`""
       $trigger = New-ScheduledTaskTrigger -Once -At (Get-Date) -RepetitionInterval (New-TimeSpan -Seconds 2) -RepetitionDuration (New-TimeSpan -Days 365)
       $settings = New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -StartWhenAvailable
-      
+
       Register-ScheduledTask -TaskName $taskName -Action $action -Trigger $trigger -Settings $settings -Force
       Start-ScheduledTask -TaskName $taskName
-      
+
       Write-Host "Created scheduled task to update server time every 2 seconds"
     EOH
     action :run

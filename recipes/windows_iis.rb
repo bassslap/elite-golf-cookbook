@@ -38,11 +38,11 @@ end
 powershell_script 'enable_iis_features' do
   code <<-EOH
     Write-Host "Checking IIS installation status..."
-    
+
     # First check if we have a problematic partial installation
     $iisWebServer = Get-WindowsOptionalFeature -Online -FeatureName IIS-WebServer
     $w3svcService = Get-Service -Name "W3SVC" -ErrorAction SilentlyContinue
-    
+
     if ($iisWebServer.State -eq "Enabled" -and (-not $w3svcService -or $w3svcService.Status -ne "Running")) {
       Write-Host "WARNING: IIS appears partially installed - forcing reinstallation..."
       # Disable and re-enable to fix partial installation
@@ -365,14 +365,14 @@ powershell_script 'configure_primary_website' do
       Write-Host "SUCCESS: WebAdministration module imported"
     } catch {
       Write-Host "WARNING: Could not import WebAdministration module, using appcmd.exe fallback"
-      
+    #{'  '}
       # Find appcmd.exe
       $appcmdPaths = @(
         "$env:SystemRoot\\System32\\inetsrv\\appcmd.exe",
         "$env:windir\\System32\\inetsrv\\appcmd.exe",
         "C:\\Windows\\System32\\inetsrv\\appcmd.exe"
       )
-      
+    #{'  '}
       $appcmd = $null
       foreach ($path in $appcmdPaths) {
         if (Test-Path $path) {
@@ -380,7 +380,7 @@ powershell_script 'configure_primary_website' do
           break
         }
       }
-      
+    #{'  '}
       if (-not $appcmd) {
         Write-Host "ERROR: appcmd.exe not found - IIS Management Tools may not be installed"
         throw "IIS Management Tools not available"
@@ -610,14 +610,14 @@ powershell_script 'final_website_creation' do
       $useWebAdmin = $true
     } catch {
       Write-Host "WARNING: Could not import WebAdministration module, checking for appcmd.exe..."
-      
+    #{'  '}
       # Check multiple possible locations for appcmd.exe
       $appcmdPaths = @(
         "$env:SystemRoot\\System32\\inetsrv\\appcmd.exe",
         "$env:windir\\System32\\inetsrv\\appcmd.exe",
         "C:\\Windows\\System32\\inetsrv\\appcmd.exe"
       )
-      
+    #{'  '}
       $appcmd = $null
       foreach ($path in $appcmdPaths) {
         if (Test-Path $path) {
@@ -626,12 +626,12 @@ powershell_script 'final_website_creation' do
           break
         }
       }
-      
+    #{'  '}
       if (-not $appcmd) {
         Write-Host "ERROR: Neither PowerShell WebAdministration module nor appcmd.exe found"
         Write-Host "IIS Management Tools may not be properly installed"
         Write-Host "Checking IIS installation..."
-        
+    #{'    '}
         # Try to check if IIS is installed at all
         $iisService = Get-Service -Name "W3SVC" -ErrorAction SilentlyContinue
         if ($iisService) {
@@ -676,7 +676,7 @@ powershell_script 'final_website_creation' do
             }
           }
         }
-        
+    #{'    '}
         if (-not $appcmd) {
           Write-Host "CRITICAL: Still cannot find IIS management tools after service restart attempts"
           Write-Host "This may indicate a fundamental IIS installation problem"
