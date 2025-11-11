@@ -164,7 +164,8 @@
             <span class="label">Server:</span> <%= node['hostname'] %> | 
             <span class="label">OS:</span> <%= node['platform'].capitalize %> <%= node['platform_version'] %> | 
             <span class="label">Architecture:</span> <%= node['kernel']['machine'] %> |
-            <span class="label">System Time:</span> <span id="live-time"></span>
+            <span class="label">Timezone:</span> <%= node['time']['timezone'] rescue 'Unknown' %> |
+            <span class="label">Live Time:</span> <span id="live-time">Loading...</span>
         </div>
     </div>
 
@@ -258,18 +259,42 @@
     <script>
         function updateLiveTime() {
             const now = new Date();
-            const timeString = now.toLocaleString('en-US', {
-                timeZone: '<%= node['time']['timezone'] %>',
-                year: 'numeric',
-                month: '2-digit',
-                day: '2-digit',
-                hour: '2-digit',
-                minute: '2-digit',
-                second: '2-digit',
-                timeZoneName: 'short',
-                hour12: false
-            });
-            document.getElementById('live-time').textContent = timeString;
+            
+            // Get server timezone from Chef node data
+            let serverTimeZone = '<%= node['time']['timezone'] rescue '' %>';
+            
+            // Fallback to detecting local timezone if server timezone is not available
+            if (!serverTimeZone || serverTimeZone.trim() === '') {
+                serverTimeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+            }
+            
+            try {
+                const timeString = now.toLocaleString('en-US', {
+                    timeZone: serverTimeZone,
+                    year: 'numeric',
+                    month: '2-digit',
+                    day: '2-digit',
+                    hour: '2-digit',
+                    minute: '2-digit',
+                    second: '2-digit',
+                    timeZoneName: 'short',
+                    hour12: false
+                });
+                document.getElementById('live-time').textContent = timeString;
+            } catch (error) {
+                // Fallback to simple local time if timezone formatting fails
+                console.log('Timezone formatting error, using simple format:', error);
+                const fallbackTime = now.toLocaleString('en-US', {
+                    year: 'numeric',
+                    month: '2-digit',
+                    day: '2-digit',
+                    hour: '2-digit',
+                    minute: '2-digit',
+                    second: '2-digit',
+                    hour12: false
+                }) + ' (Local)';
+                document.getElementById('live-time').textContent = fallbackTime;
+            }
         }
         
         // Update time immediately and then every second
