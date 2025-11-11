@@ -37,6 +37,19 @@ end
 # Install IIS features using PowerShell with correct Windows 10 feature names
 powershell_script 'enable_iis_features' do
   code <<-EOH
+    Write-Host "Checking IIS installation status..."
+    
+    # First check if we have a problematic partial installation
+    $iisWebServer = Get-WindowsOptionalFeature -Online -FeatureName IIS-WebServer
+    $w3svcService = Get-Service -Name "W3SVC" -ErrorAction SilentlyContinue
+    
+    if ($iisWebServer.State -eq "Enabled" -and (-not $w3svcService -or $w3svcService.Status -ne "Running")) {
+      Write-Host "WARNING: IIS appears partially installed - forcing reinstallation..."
+      # Disable and re-enable to fix partial installation
+      Disable-WindowsOptionalFeature -Online -FeatureName IIS-WebServer -NoRestart -ErrorAction SilentlyContinue
+      Start-Sleep -Seconds 5
+    }
+
     # Enable IIS and required features for Windows 10/Server
     $features = @(
       'IIS-WebServerRole',
@@ -84,7 +97,8 @@ powershell_script 'enable_iis_features' do
     Start-Sleep -Seconds 10
   EOH
   action :run
-  not_if 'Get-WindowsOptionalFeature -Online -FeatureName IIS-WebServer | Where-Object {$_.State -eq "Enabled"}'
+  # Only skip if IIS is fully functional (service running, not just enabled)
+  not_if 'Get-Service -Name "W3SVC" -ErrorAction SilentlyContinue | Where-Object {$_.Status -eq "Running"}'
 end
 
 # Wait for IIS services and components to be available using PowerShell
@@ -621,11 +635,53 @@ powershell_script 'final_website_creation' do
         # Try to check if IIS is installed at all
         $iisService = Get-Service -Name "W3SVC" -ErrorAction SilentlyContinue
         if ($iisService) {
-          Write-Host "IIS Service found but management tools missing"
+          Write-Host "IIS Service found but management tools missing - attempting service start..."
+          try {
+            Start-Service -Name "W3SVC" -ErrorAction Stop
+            Write-Host "W3SVC service started successfully"
+            # Try to find management tools again after service start
+            Start-Sleep -Seconds 5
+            foreach ($path in $appcmdPaths) {
+              if (Test-Path $path) {
+                $appcmd = $path
+                Write-Host "SUCCESS: Found appcmd.exe at $path after service start"
+                break
+              }
+            }
+          } catch {
+            Write-Host "Failed to start W3SVC service: $($_.Exception.Message)"
+          }
         } else {
-          Write-Host "IIS Service not found - IIS may not be installed"
+          Write-Host "IIS Service not found - attempting to start IIS services..."
+          # Try to start common IIS services
+          $iisServices = @("W3SVC", "WAS", "IISADMIN")
+          foreach ($svc in $iisServices) {
+            try {
+              $service = Get-Service -Name $svc -ErrorAction SilentlyContinue
+              if ($service) {
+                Start-Service -Name $svc -ErrorAction SilentlyContinue
+                Write-Host "Started service: $svc"
+              }
+            } catch {
+              Write-Host "Could not start service $svc : $($_.Exception.Message)"
+            }
+          }
+          Start-Sleep -Seconds 10
+          # Check again for appcmd.exe
+          foreach ($path in $appcmdPaths) {
+            if (Test-Path $path) {
+              $appcmd = $path
+              Write-Host "SUCCESS: Found appcmd.exe at $path after service restart"
+              break
+            }
+          }
         }
-        exit 1
+        
+        if (-not $appcmd) {
+          Write-Host "CRITICAL: Still cannot find IIS management tools after service restart attempts"
+          Write-Host "This may indicate a fundamental IIS installation problem"
+          exit 1
+        }
       }
     }
 
