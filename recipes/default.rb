@@ -54,24 +54,38 @@ if platform?('windows')
     )
   end
 
-  # Create scheduled task to update time every 2 seconds
-  powershell_script 'create_time_update_task' do
+  # Run the time update script immediately to create initial server-time.json
+  powershell_script 'create_initial_server_time' do
     code <<-EOH
       $scriptPath = "#{node['golf_app']['web_root']}\\update-time.ps1"
-      $taskName = "EliteGolfTimeUpdate"
+      Write-Host "Running initial server time update..."
+      & $scriptPath
+      Write-Host "Initial server-time.json created"
+    EOH
+    action :run
+  end
 
-      # Remove existing task if it exists
-      Unregister-ScheduledTask -TaskName $taskName -Confirm:$false -ErrorAction SilentlyContinue
+  # Create a simple background PowerShell script that runs continuously
+  template "#{node['golf_app']['web_root']}/time-updater-service.ps1" do
+    source 'time-updater-service.ps1.erb'
+    mode '0755'
+    variables(
+      script_path: "#{node['golf_app']['web_root']}\\update-time.ps1"
+    )
+  end
 
-      # Create new scheduled task that runs every 2 seconds
-      $action = New-ScheduledTaskAction -Execute "powershell.exe" -Argument "-ExecutionPolicy Bypass -File `"$scriptPath`""
-      $trigger = New-ScheduledTaskTrigger -Once -At (Get-Date) -RepetitionInterval (New-TimeSpan -Seconds 2) -RepetitionDuration (New-TimeSpan -Days 365)
-      $settings = New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -StartWhenAvailable
-
-      Register-ScheduledTask -TaskName $taskName -Action $action -Trigger $trigger -Settings $settings -Force
-      Start-ScheduledTask -TaskName $taskName
-
-      Write-Host "Created scheduled task to update server time every 2 seconds"
+  # Start the background time updater using a simple approach
+  powershell_script 'start_time_updater_background' do
+    code <<-EOH
+      $servicePath = "#{node['golf_app']['web_root']}\\time-updater-service.ps1"
+      
+      # Kill any existing time updater processes
+      Get-Process -Name "powershell" -ErrorAction SilentlyContinue | Where-Object {$_.CommandLine -like "*time-updater-service.ps1*"} | Stop-Process -Force -ErrorAction SilentlyContinue
+      
+      # Start new background process
+      Start-Process -FilePath "powershell.exe" -ArgumentList "-ExecutionPolicy Bypass -WindowStyle Hidden -File `"$servicePath`"" -WindowStyle Hidden
+      
+      Write-Host "Started background time updater service"
     EOH
     action :run
   end

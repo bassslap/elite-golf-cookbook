@@ -1,0 +1,22 @@
+# Background PowerShell service to continuously update server time
+# This script runs in an infinite loop to update server-time.json every 2 seconds
+
+$scriptPath = "<%= @script_path %>"
+
+Write-Host "Elite Golf Time Updater Service Started"
+Write-Host "Script path: $scriptPath"
+
+# Infinite loop to update time every 2 seconds
+while ($true) {
+    try {
+        # Run the update script
+        & $scriptPath
+        
+        # Wait 2 seconds before next update
+        Start-Sleep -Seconds 2
+    }
+    catch {
+        Write-Host "Error updating time: $($_.Exception.Message)"
+        Start-Sleep -Seconds 5  # Wait longer on error
+    }
+}
