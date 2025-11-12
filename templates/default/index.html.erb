@@ -258,35 +258,31 @@
 
     <script>
         function updateLiveTime() {
-            // Fetch actual server time from JSON endpoint
+            // Fetch actual server time from JSON endpoint - NO CLIENT FALLBACK
             fetch('./server-time.json')
-                .then(response => response.json())
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                    }
+                    return response.json();
+                })
                 .then(data => {
                     // Display server time with timezone info
                     const timeDisplay = `${data.datetime} ${data.timezone}`;
                     document.getElementById('live-time').textContent = timeDisplay;
                     
-                    // Optional: Log to console to prove it's from server
-                    console.log('Server time updated:', data);
+                    // Log to console to prove it's from server
+                    console.log('✅ SERVER TIME:', data);
                 })
                 .catch(error => {
-                    console.error('Failed to fetch server time:', error);
-                    // Fallback to client time if server time unavailable
-                    const now = new Date();
-                    const fallbackTime = now.toLocaleString('en-US', {
-                        year: 'numeric',
-                        month: '2-digit',
-                        day: '2-digit',
-                        hour: '2-digit',
-                        minute: '2-digit',
-                        second: '2-digit',
-                        hour12: true
-                    }) + ' (Client Fallback)';
-                    document.getElementById('live-time').textContent = fallbackTime;
+                    console.error('❌ SERVER TIME ERROR:', error);
+                    // NO FALLBACK - Display clear error message instead
+                    document.getElementById('live-time').textContent = '⚠️ SERVER TIME UNAVAILABLE';
+                    document.getElementById('live-time').style.color = '#ff6b6b';
                 });
         }
         
-        // Update time immediately and then every 2 seconds (matches server update frequency)
+        // Update time immediately and then every 2 seconds
         updateLiveTime();
         setInterval(updateLiveTime, 2000);
     </script>
