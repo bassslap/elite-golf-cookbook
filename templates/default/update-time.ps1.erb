@@ -2,22 +2,43 @@
 $webRoot = "<%= @web_root %>"
 $timeFile = Join-Path $webRoot "server-time.json"
 
-# Get current time information
-$now = Get-Date
-$timestamp = [Math]::Floor($now.ToUniversalTime().Subtract((Get-Date "1/1/1970")).TotalSeconds)
-$displayTime = $now.ToString("MM/dd/yyyy, hh:mm:ss tt")
+try {
+    # Get current time information
+    $now = Get-Date
+    $timestamp = [Math]::Floor($now.ToUniversalTime().Subtract((Get-Date "1/1/1970")).TotalSeconds)
+    $displayTime = $now.ToString("MM/dd/yyyy, hh:mm:ss tt")
 
-# Create JSON object
-$timeData = @{
-    timestamp = $timestamp
-    datetime = $displayTime
-    timezone = "<%= @timezone rescue 'Unknown' %>"
-    server = "<%= @hostname %>"
-    platform = "<%= @platform.capitalize %> <%= @platform_version %>"
-    updated = $now.ToString("yyyy-MM-dd HH:mm:ss")
-} | ConvertTo-Json -Compress
+    # Create JSON object
+    $timeData = @{
+        timestamp = $timestamp
+        datetime = $displayTime
+        timezone = "<%= @timezone rescue 'Unknown' %>"
+        server = "<%= @hostname %>"
+        platform = "<%= @platform.capitalize %> <%= @platform_version %>"
+        updated = $now.ToString("yyyy-MM-dd HH:mm:ss")
+    } | ConvertTo-Json -Compress
 
-# Write to file atomically
-$tempFile = "$timeFile.tmp"
-$timeData | Out-File -FilePath $tempFile -Encoding UTF8 -NoNewline
-Move-Item $tempFile $timeFile -Force
+    # Write to file atomically
+    $tempFile = "$timeFile.tmp"
+    $timeData | Out-File -FilePath $tempFile -Encoding UTF8 -NoNewline
+    Move-Item $tempFile $timeFile -Force
+    
+    # Set appropriate permissions for IIS
+    $acl = Get-Acl $timeFile
+    $accessRule = New-Object System.Security.AccessControl.FileSystemAccessRule("IIS_IUSRS", "Read", "Allow")
+    $acl.SetAccessRule($accessRule)
+    $accessRule2 = New-Object System.Security.AccessControl.FileSystemAccessRule("IUSR", "Read", "Allow")
+    $acl.SetAccessRule($accessRule2)
+    Set-Acl $timeFile $acl
+    
+    # Debug output (will be visible in Chef logs during initial run)
+    if ($env:CHEF_DEBUG -eq "1") {
+        Write-Host "Time file updated: $timeFile"
+        Write-Host "Content: $timeData"
+    }
+    
+} catch {
+    Write-Host "ERROR updating server time: $($_.Exception.Message)"
+    Write-Host "Web root: $webRoot"
+    Write-Host "Time file: $timeFile"
+}

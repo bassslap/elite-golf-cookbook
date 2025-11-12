@@ -2,21 +2,39 @@
 # This script runs in an infinite loop to update server-time.json every 2 seconds
 
 $scriptPath = "<%= @script_path %>"
+$logFile = Join-Path (Split-Path $scriptPath) "time-service.log"
 
-Write-Host "Elite Golf Time Updater Service Started"
-Write-Host "Script path: $scriptPath"
+function Write-Log($message) {
+    $timestamp = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
+    $logEntry = "[$timestamp] $message"
+    Add-Content -Path $logFile -Value $logEntry -ErrorAction SilentlyContinue
+}
+
+Write-Log "Elite Golf Time Updater Service Started"
+Write-Log "Script path: $scriptPath"
 
 # Infinite loop to update time every 2 seconds
+$errorCount = 0
 while ($true) {
     try {
         # Run the update script
         & $scriptPath
         
+        # Reset error count on success
+        if ($errorCount -gt 0) {
+            Write-Log "Service recovered after $errorCount errors"
+            $errorCount = 0
+        }
+        
         # Wait 2 seconds before next update
         Start-Sleep -Seconds 2
     }
     catch {
-        Write-Host "Error updating time: $($_.Exception.Message)"
-        Start-Sleep -Seconds 5  # Wait longer on error
+        $errorCount++
+        Write-Log "Error updating time (count: $errorCount): $($_.Exception.Message)"
+        
+        # Increase wait time based on error count
+        $waitTime = [Math]::Min(30, 5 + $errorCount)
+        Start-Sleep -Seconds $waitTime
     }
 }

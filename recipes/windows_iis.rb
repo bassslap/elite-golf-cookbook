@@ -779,6 +779,32 @@ powershell_script 'final_website_creation' do
   ignore_failure false
 end
 
+# Configure JSON MIME type for server-time.json files
+powershell_script 'configure_json_mime_type' do
+  code <<-EOH
+    Write-Host "Configuring JSON MIME type for IIS..."
+    
+    $appcmd = "${env:SystemRoot}\\system32\\inetsrv\\appcmd.exe"
+    
+    # Add JSON MIME type to the default website
+    try {
+      & $appcmd set config "#{node['golf_app']['site_name']}" /section:staticContent /-"[fileExtension='.json']" 2>$null
+      & $appcmd set config "#{node['golf_app']['site_name']}" /section:staticContent /+"[fileExtension='.json',mimeType='application/json']"
+      Write-Host "SUCCESS: JSON MIME type configured for #{node['golf_app']['site_name']}"
+    } catch {
+      Write-Host "WARNING: Could not configure JSON MIME type: $($_.Exception.Message)"
+      Write-Host "Trying global configuration..."
+      
+      # Try global configuration as fallback
+      & $appcmd set config /section:staticContent /-"[fileExtension='.json']" 2>$null
+      & $appcmd set config /section:staticContent /+"[fileExtension='.json',mimeType='application/json']" 2>$null
+      Write-Host "Applied JSON MIME type globally"
+    }
+  EOH
+  action :run
+  ignore_failure true
+end
+
 log 'IIS configuration completed' do
   message 'IIS configured for Elite Golf application on port 80 with final website creation'
   level :info
