@@ -3,7 +3,7 @@ maintainer 'Elite Golf Team'
 maintainer_email 'admin@elitegolf.com'
 license 'Apache-2.0'
 description 'Deploys a simple golf-themed web application'
-version '1.0.51'
+version '1.0.52'
 chef_version '>= 14.0'
 
 supports 'windows'

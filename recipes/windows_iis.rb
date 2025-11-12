@@ -786,19 +786,24 @@ powershell_script 'configure_json_mime_type' do
     
     $appcmd = "${env:SystemRoot}\\system32\\inetsrv\\appcmd.exe"
     
-    # Add JSON MIME type to the default website
+    # Add JSON MIME type - try global configuration first as it's more reliable
     try {
-      & $appcmd set config "#{node['golf_app']['site_name']}" /section:staticContent /-"[fileExtension='.json']" 2>$null
-      & $appcmd set config "#{node['golf_app']['site_name']}" /section:staticContent /+"[fileExtension='.json',mimeType='application/json']"
-      Write-Host "SUCCESS: JSON MIME type configured for #{node['golf_app']['site_name']}"
+      Write-Host "Removing existing JSON MIME type if present..."
+      & $appcmd set config /section:staticContent /-"[fileExtension='.json']" 2>$null | Out-Null
+      
+      Write-Host "Adding JSON MIME type globally..."
+      & $appcmd set config /section:staticContent /+"[fileExtension='.json',mimeType='application/json']"
+      Write-Host "SUCCESS: JSON MIME type configured globally"
+      
+      # Verify the configuration
+      $mimeCheck = & $appcmd list config /section:staticContent | Select-String "\.json"
+      if ($mimeCheck) {
+        Write-Host "✅ JSON MIME type verified: $mimeCheck"
+      }
+      
     } catch {
       Write-Host "WARNING: Could not configure JSON MIME type: $($_.Exception.Message)"
-      Write-Host "Trying global configuration..."
-      
-      # Try global configuration as fallback
-      & $appcmd set config /section:staticContent /-"[fileExtension='.json']" 2>$null
-      & $appcmd set config /section:staticContent /+"[fileExtension='.json',mimeType='application/json']" 2>$null
-      Write-Host "Applied JSON MIME type globally"
+      Write-Host "JSON files may not be served properly"
     }
   EOH
   action :run

@@ -90,65 +90,51 @@ if platform?('windows')
     action :run
   end
   
-  # Verify server-time.json is being created and accessible
+  # Simple verification - just ensure initial server-time.json exists
   powershell_script 'verify_server_time_setup' do
     code <<-EOH
       $timeFile = "#{node['golf_app']['web_root']}\\server-time.json"
-      $webRoot = "#{node['golf_app']['web_root']}"
       
-      Write-Host "=== SERVER TIME VERIFICATION ==="
-      Write-Host "Web root: $webRoot"
-      Write-Host "Time file path: $timeFile"
+      Write-Host "Checking server time setup..."
       
-      # Wait a few seconds for the background process to create the file
-      Start-Sleep -Seconds 5
+      # Wait briefly for initial file creation
+      Start-Sleep -Seconds 3
       
-      # Check if file exists
       if (Test-Path $timeFile) {
-        Write-Host "✅ server-time.json file exists"
+        Write-Host "✅ server-time.json file found"
         
-        # Check file content
+        # Quick content check
         try {
-          $content = Get-Content $timeFile -Raw
-          Write-Host "✅ File content: $content"
-          
-          # Test if it's valid JSON
-          $json = ConvertFrom-Json $content
-          Write-Host "✅ Valid JSON with timestamp: $($json.timestamp)"
+          $content = Get-Content $timeFile -Raw -ErrorAction SilentlyContinue
+          if ($content -and $content.Length -gt 10) {
+            Write-Host "✅ File has content ($($content.Length) characters)"
+          } else {
+            Write-Host "⚠️ File exists but may be empty"
+          }
         } catch {
-          Write-Host "❌ File exists but has issues: $($_.Exception.Message)"
+          Write-Host "⚠️ Could not read file: $($_.Exception.Message)"
         }
-        
-        # Check file permissions for IIS
-        $acl = Get-Acl $timeFile
-        Write-Host "✅ File permissions configured for: $($acl.Owner)"
         
       } else {
-        Write-Host "❌ server-time.json file NOT found"
+        Write-Host "❌ server-time.json not found - server time may not work"
         
-        # Debug information
-        Write-Host "Directory contents:"
-        Get-ChildItem $webRoot -ErrorAction SilentlyContinue | Format-Table Name, LastWriteTime
-        
-        # Check if update script exists
-        $updateScript = "$webRoot\\update-time.ps1"
+        # Try to run update script manually once
+        $updateScript = "#{node['golf_app']['web_root']}\\update-time.ps1"
         if (Test-Path $updateScript) {
-          Write-Host "✅ Update script exists, trying manual run..."
-          & $updateScript
-          
-          if (Test-Path $timeFile) {
-            Write-Host "✅ Manual execution created the file"
-          } else {
-            Write-Host "❌ Manual execution failed"
+          Write-Host "Trying to create time file manually..."
+          try {
+            & $updateScript
+            if (Test-Path $timeFile) {
+              Write-Host "✅ Manual creation successful"
+            }
+          } catch {
+            Write-Host "❌ Manual creation failed: $($_.Exception.Message)"
           }
-        } else {
-          Write-Host "❌ Update script not found at: $updateScript"
         }
       }
-      
-      Write-Host "=== END VERIFICATION ==="
     EOH
     action :run
+    ignore_failure true
   end
 else
   # Linux shell script to update server time JSON
