@@ -164,7 +164,6 @@
             <span class="label">Server:</span> <%= node['hostname'] %> | 
             <span class="label">OS:</span> <%= node['platform'].capitalize %> <%= node['platform_version'] %> | 
             <span class="label">Architecture:</span> <%= node['kernel']['machine'] %> |
-            <span class="label">Timezone:</span> <%= node['time']['timezone'] rescue 'Unknown' %> |
             <span class="label">Live Time:</span> <span id="live-time">Loading...</span>
         </div>
     </div>
